@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "NanoKVM Pro Desk Screen",
+        "description": "Enter the NanoKVM Pro Desk host. After setup, use the sidebar Agent button to install or connect the screen agent.",
+        "data": {
+          "host": "Host"
+        }
+      }
+    },
+    "error": {
+      "invalid_host": "Enter the Desk host without http:// or a path."
+    },
+    "abort": {
+      "already_configured": "This Desk screen is already configured."
+    }
+  }
+}
