@@ -222,9 +222,8 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
                     ssh_host_key=ssh_config.host_key_fingerprint,
                 )
                 if not changed:
-                    # Same host, port and token: reload anyway so the entities and
-                    # the panel pick up the restarted (possibly updated) agent.
-                    self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                    # No reload follows, so let the entities see the restarted agent.
+                    self.hass.async_create_task(coordinator.async_request_refresh())
                 if not answers:
                     return self.json_message(
                         "Agent was installed but does not answer on "
@@ -298,7 +297,7 @@ def _connection_config_from_payload(
     payload: dict[str, Any], default_host: str, trusted_host_key: str | None
 ) -> ConnectionConfig:
     """Build an SSH connection config from a lifecycle request payload."""
-    host = _str_from_payload(payload, "ssh_host", default_host)
+    host = _str_from_payload(payload, "ssh_host", default_host) or default_host
     user = _str_from_payload(payload, "ssh_user", "root")
     port = _int_from_payload(
         payload,

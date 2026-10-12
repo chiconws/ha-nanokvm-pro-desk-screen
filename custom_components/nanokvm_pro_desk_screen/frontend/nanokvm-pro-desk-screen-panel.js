@@ -201,15 +201,10 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
 
     const currentIndex = Number(this._selectedIndex || 0);
     const selected = entries[Math.min(currentIndex, Math.max(entries.length - 1, 0))];
-    const agentReachable = Boolean(selected?.agent_installed);
-    let callout = "";
-    if (selected && !selected.agent_configured) {
-      callout = "setup";
-    } else if (selected && !agentReachable) {
-      callout = "unreachable";
-    } else if (selected?.agent_outdated) {
-      callout = "outdated";
+    if (selected !== this._selected) {
+      this._agentStatus = undefined;
     }
+    const callout = this._callout();
     const agentButton = this._t(
       { setup: "setup_agent", outdated: "update_agent" }[callout] || "manage_agent",
     );
@@ -654,9 +649,7 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
                 }
                 <div class="viewer" id="viewer">
                   <div class="screen-column" id="screen-column">
-                    <div id="status" class="screen-badge">${this._t(
-                      agentReachable ? "badge_reachable" : "badge_unreachable",
-                    )}</div>
+                    <div id="status" class="screen-badge">${this._t("loading")}</div>
                     <div class="screen" id="screen">
                       <img id="screen-image" alt="${this._t("screen_alt")}">
                       <div class="screen-status" id="screen-status">${this._t("loading_screen")}</div>
@@ -693,7 +686,6 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
     if (select) {
       select.addEventListener("change", (event) => {
         this._selectedIndex = event.target.value;
-        this._agentStatus = undefined;
         this._render();
       });
     }
@@ -703,6 +695,24 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
     this._wireControls();
     this._wireAgentDialog(selected);
     this._startRefresh();
+    if (selected && this._agentStatus === undefined) {
+      this._loadAgentStatus();
+    }
+  }
+
+  // Which notice the page shows, from the last agent state read from the server.
+  _callout() {
+    const status = this._agentStatus;
+    if (!status) {
+      return "";
+    }
+    if (!status.configured) {
+      return "setup";
+    }
+    if (!status.reachable) {
+      return "unreachable";
+    }
+    return status.outdated ? "outdated" : "";
   }
 
   _agentDialogTemplate(selected) {
@@ -710,8 +720,8 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       return "";
     }
 
-    const host = this._escape(selected.host || "");
-    const port = this._escape(selected.port || "8765");
+    const host = this._escape(this._agentStatus?.host || "");
+    const port = this._escape(this._agentStatus?.port || "8765");
     const confirm = this._agentConfirm;
     const status = this._agentStatusView();
     const disabled = this._agentBusy ? "disabled" : "";
@@ -793,7 +803,7 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
 
   _agentStatusView() {
     const status = this._agentStatus;
-    if (status === undefined) {
+    if (this._agentStatusLoading || status === undefined) {
       return { level: "", text: this._t("status_checking") };
     }
     if (status === null) {
@@ -812,10 +822,10 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
 
   async _loadAgentStatus() {
     const selected = this._selected;
-    if (!selected || !this._hass) {
+    if (!selected || !this._hass || this._agentStatusLoading) {
       return;
     }
-    this._agentStatus = undefined;
+    this._agentStatusLoading = true;
     this._showAgentStatus();
     let status = null;
     try {
@@ -826,24 +836,19 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
     } catch (_err) {
       // shown as "could not check"
     }
+    this._agentStatusLoading = false;
     if (selected !== this._selected) {
+      // The entry changed while this was in flight: read the current one.
+      this._loadAgentStatus();
       return;
     }
+    const before = this._callout();
     this._agentStatus = status;
-    this._showAgentStatus();
-    if (
-      status &&
-      (selected.agent_configured !== status.configured ||
-        Boolean(selected.agent_outdated) !== status.outdated ||
-        selected.agent_installed !== status.reachable)
-    ) {
-      // The page behind the dialog (callout, toolbar button) depends on these.
-      Object.assign(selected, {
-        agent_configured: status.configured,
-        agent_outdated: status.outdated,
-        agent_installed: status.reachable,
-      });
+    if (before !== this._callout()) {
+      // The notice and the toolbar button behind the dialog depend on it.
       this._render();
+    } else {
+      this._showAgentStatus();
     }
   }
 
@@ -1061,8 +1066,6 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       } else if (action === "uninstall") {
         this._setAgentMessage(this._t("done_uninstall"));
       } else {
-        selected.host = data.host || selected.host;
-        selected.port = data.port || selected.port;
         this._setAgentMessage(this._t("done_install", { manager: data.service_manager }));
       }
     } catch (err) {
@@ -1224,12 +1227,11 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       .replace(/'/g, "&#039;");
   }
 
+  // The snapshot loop noticed the agent appear or disappear: read the full state again.
   _setAgentReachable(reachable) {
-    if (!this._selected || this._selected.agent_installed === reachable) {
-      return;
+    if (this._agentStatus && this._agentStatus.reachable !== reachable) {
+      this._loadAgentStatus();
     }
-    this._selected.agent_installed = reachable;
-    this._render();
   }
 }
 
