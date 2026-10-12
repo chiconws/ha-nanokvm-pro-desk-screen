@@ -70,16 +70,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not unload_ok:
         return False
 
-    domain_data = hass.data.get(DOMAIN, {})
-    coordinators = domain_data.get(DATA_COORDINATORS, {})
-    coordinators.pop(entry.entry_id, None)
+    # The panel is left alone here: a reload registers it again with the same
+    # config, and taking it away in between would close the page the user is on.
+    hass.data.get(DOMAIN, {}).get(DATA_COORDINATORS, {}).pop(entry.entry_id, None)
+    return True
 
-    if coordinators:
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Drop the removed entry from the sidebar panel, or the panel with the last one."""
+    # ponytail: a disabled entry stays listed in the panel until restart
+    if hass.data.get(DOMAIN, {}).get(DATA_COORDINATORS):
         await _async_register_panel(hass)
     else:
         frontend.async_remove_panel(hass, PANEL_FRONTEND_URL_PATH, warn_if_unknown=False)
-
-    return True
 
 
 async def _async_register_panel(hass: HomeAssistant) -> None:
@@ -104,6 +107,8 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         hass.http.register_view(DeskScreenAgentLifecycleView(hass, DATA_COORDINATORS))
         domain_data[DATA_HTTP_REGISTERED] = True
 
+    # Only static values go in the panel config: when it changes the frontend
+    # rebuilds the page. The panel reads the agent state from the agent resource.
     entries = []
     for coordinator in domain_data.get(DATA_COORDINATORS, {}).values():
         entry = coordinator.config_entry
@@ -114,10 +119,6 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
                 "snapshot_url": f"/api/{DOMAIN}/{entry.entry_id}/snapshot.jpg",
                 "input_url": f"/api/{DOMAIN}/{entry.entry_id}/input",
                 "agent_url": f"/api/{DOMAIN}/{entry.entry_id}/agent",
-                "host": entry.data[CONF_HOST],
-                "port": entry.data.get(CONF_PORT, DEFAULT_PORT),
-                "agent_configured": bool(entry.data.get(CONF_TOKEN)),
-                "agent_installed": coordinator.last_update_success,
             }
         )
 

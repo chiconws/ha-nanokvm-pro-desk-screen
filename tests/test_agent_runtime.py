@@ -15,6 +15,7 @@ from custom_components.nanokvm_pro_desk_screen.agent.runtime import (
     ABS_MT_POSITION_X,
     ABS_MT_POSITION_Y,
     ABS_MT_TRACKING_ID,
+    AGENT_HASH,
     BTN_TOUCH,
     EV_ABS,
     EV_KEY,
@@ -105,6 +106,8 @@ def test_agent_accepts_token_and_serves_health(tmp_path: Path) -> None:
 
     with running_agent(config) as base_url:
         assert request_json(f"{base_url}/api/health", "secret-token")["ok"] is True
+        metadata = request_json(f"{base_url}/api/screen/metadata", "secret-token")
+        assert metadata["agent_hash"] == AGENT_HASH
 
 
 def test_agent_cors_preflight_is_available(tmp_path: Path) -> None:

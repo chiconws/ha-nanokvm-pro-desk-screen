@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import posixpath
 import secrets
 import shlex
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -327,6 +329,12 @@ def upload_text(remote: SSHClient, path: str, content: str, *, mode: str) -> Non
 
 def agent_source() -> str:
     return (Path(__file__).parent / "runtime.py").read_text(encoding="utf-8")
+
+
+@cache
+def agent_hash() -> str:
+    """Hash of the bundled runtime, as the installed agent reports it. Reads a file."""
+    return hashlib.sha256(agent_source().encode("utf-8")).hexdigest()[:16]
 
 
 def agent_url(host: str, port: int, token: str) -> str:

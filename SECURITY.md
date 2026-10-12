@@ -4,14 +4,14 @@ This project can install an optional HTTP agent onto a NanoKVM Pro Desk. Treat
 that agent as sensitive: it can view the front-panel screen and inject touch or
 knob events.
 
-SSH is required only for install, update, status, token rotation, and uninstall.
+SSH is required only for install, update, token rotation, and uninstall.
 After the agent is installed and verified, normal Home Assistant camera/sidebar
 runtime does not use SSH. You can disable SSH again, but you must re-enable it
 later for maintenance or uninstall.
 
 ## What Gets Installed
 
-The Home Assistant sidebar `Agent` manager and `scripts/desk_agent.py install`
+The Home Assistant sidebar agent dialog and `scripts/desk_agent.py install`
 copy these files over SSH:
 
 | Path | Purpose | Permissions |
@@ -25,7 +25,7 @@ copy these files over SSH:
 The agent is uninstalled with:
 
 ```bash
-.venv/bin/python scripts/desk_agent.py uninstall --host <desk-ip> --user root --ask-password
+python3 scripts/desk_agent.py uninstall --host <desk-ip> --user root --ask-password
 ```
 
 ## Runtime Permissions
@@ -79,7 +79,7 @@ Important limitations:
 Rotate the token with:
 
 ```bash
-.venv/bin/python scripts/desk_agent.py install --host <desk-ip> --user root --ask-password --reset-token
+python3 scripts/desk_agent.py install --host <desk-ip> --user root --ask-password --reset-token
 ```
 
 ## Logging
@@ -101,8 +101,8 @@ to the agent, so the Desk agent token is not passed to the browser by the panel.
 The panel receives a generated Home Assistant-side panel token that only grants
 access to those proxy endpoints and is regenerated when Home Assistant restarts.
 
-The sidebar `Agent` manager can install, update, check status, rotate the token,
-or uninstall the agent. SSH credentials entered in that dialog are sent to Home
+The sidebar agent dialog can install, update, rotate the token of, or uninstall
+the agent. It reads the agent state over HTTP, without SSH. SSH credentials entered in that dialog are sent to Home
 Assistant for the selected action only and are not written to the config entry.
 When the sidebar installs or resets the agent token, the new Desk token is saved
 server-side in the Home Assistant config entry. The sidebar does not display the

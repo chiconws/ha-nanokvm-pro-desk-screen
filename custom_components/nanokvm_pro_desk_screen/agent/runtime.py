@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import hashlib
 import hmac
 import json
 import math
@@ -28,6 +29,11 @@ DEFAULT_INPUT_ROOT = "/sys/class/input"
 DEFAULT_MAX_STREAMS = 2
 MAX_STREAMS_LIMIT = 8
 MIN_TOKEN_LENGTH = 24
+
+# Home Assistant compares this with the hash of the runtime it ships to tell
+# whether the agent installed on the Desk is outdated.
+with open(__file__, "rb") as _source:
+    AGENT_HASH = hashlib.sha256(_source.read()).hexdigest()[:16]
 
 EVENT_STRUCT = "llHHi"
 EV_SYN = 0x00
@@ -170,11 +176,11 @@ class AgentRequestHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/health":
-            self.send_json({"ok": True, "version": "0.1.0"})
+            self.send_json({"ok": True, "version": "0.1.0", "agent_hash": AGENT_HASH})
         elif path == "/api/probe":
             self.send_json(probe_state(self.runtime_config))
         elif path == "/api/screen/metadata":
-            self.send_json(self.runtime_config.metadata())
+            self.send_json({**self.runtime_config.metadata(), "agent_hash": AGENT_HASH})
         elif path == "/api/screen/frame":
             self.send_frame()
         elif path == "/api/screen/raw":

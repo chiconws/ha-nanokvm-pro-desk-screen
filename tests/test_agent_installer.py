@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from custom_components.nanokvm_pro_desk_screen.agent import runtime
 from custom_components.nanokvm_pro_desk_screen.agent.installer import (
     AGENT_CONFIG,
     AGENT_DIR,
@@ -7,6 +8,7 @@ from custom_components.nanokvm_pro_desk_screen.agent.installer import (
     INIT_SCRIPT,
     SERVICE_NAME,
     SYSTEMD_UNIT,
+    agent_hash,
     agent_source,
     agent_url,
     build_agent_config,
@@ -119,3 +121,8 @@ def test_uninstall_reports_leftover_files_as_failure() -> None:
     # the leftover check must be the last command, so its status is the result
     assert remote.commands[0].endswith(uninstall_commands()[-1])
     assert uninstall_commands()[-1].startswith("! [ -e ")
+
+
+def test_bundled_hash_matches_what_the_running_agent_reports() -> None:
+    # Home Assistant flags the agent as outdated when these differ.
+    assert agent_hash() == runtime.AGENT_HASH
