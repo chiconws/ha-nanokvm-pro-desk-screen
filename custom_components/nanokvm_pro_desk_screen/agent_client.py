@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Any
@@ -84,10 +85,9 @@ class DeskAgentClient:
             response.raise_for_status()
             frame = await response.content.readexactly(metadata.frame_size)
 
-        image = rgb565_to_image(frame, metadata)
-        output = BytesIO()
-        image.save(output, format="JPEG", quality=85)
-        return output.getvalue()
+        return await asyncio.get_running_loop().run_in_executor(
+            None, rgb565_to_jpeg, frame, metadata
+        )
 
     async def async_post_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Post JSON to the Desk agent."""
@@ -114,6 +114,13 @@ class DeskAgentClient:
         return payload if isinstance(payload, dict) else {}
 
 
+def rgb565_to_jpeg(data: bytes, metadata: ScreenMetadata) -> bytes:
+    """Convert a raw framebuffer frame to JPEG. Blocking; run in an executor."""
+    output = BytesIO()
+    rgb565_to_image(data, metadata).save(output, format="JPEG", quality=85)
+    return output.getvalue()
+
+
 def rgb565_to_image(data: bytes, metadata: ScreenMetadata) -> Image.Image:
     """Convert little-endian RGB565 framebuffer data to a logical RGB image."""
     if metadata.bits_per_pixel != 16:
@@ -123,20 +130,13 @@ def rgb565_to_image(data: bytes, metadata: ScreenMetadata) -> Image.Image:
             f"not enough framebuffer data: expected {metadata.frame_size}, got {len(data)}"
         )
 
-    physical = Image.new("RGB", (metadata.physical_width, metadata.physical_height))
-    pixels = physical.load()
-    if pixels is None:
-        raise RuntimeError("failed to access image pixel buffer")
-    offset = 0
-    for y in range(metadata.physical_height):
-        for x in range(metadata.physical_width):
-            value = data[offset] | (data[offset + 1] << 8)
-            offset += 2
-            red = ((value >> 11) & 0x1F) * 255 // 31
-            green = ((value >> 5) & 0x3F) * 255 // 63
-            blue = (value & 0x1F) * 255 // 31
-            pixels[x, y] = (red, green, blue)
-
+    physical = Image.frombytes(
+        "RGB",
+        (metadata.physical_width, metadata.physical_height),
+        data[: metadata.frame_size],
+        "raw",
+        "BGR;16",
+    )
     image = rotate_physical_to_logical(physical, metadata.rotation)
     logical_size = (metadata.logical_width, metadata.logical_height)
     if image.size != logical_size:
