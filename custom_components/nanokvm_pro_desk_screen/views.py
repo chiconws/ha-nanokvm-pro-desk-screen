@@ -20,6 +20,7 @@ from .agent.installer import (
     DEFAULT_AGENT_BIND,
     DEFAULT_AGENT_FPS,
     agent_hash,
+    agent_source,
     install_agent,
     uninstall_agent,
 )
@@ -58,6 +59,14 @@ class DeskScreenResourceView(HomeAssistantView):
         """Handle proxied GET requests."""
         if resource == "agent":
             return await self._agent_state(entry_id)
+        if resource == "agent.py":
+            # The exact file an install uploads to the Desk, for anyone to read first.
+            return web.Response(
+                text=await self.hass.async_add_executor_job(agent_source),
+                content_type="text/plain",
+                charset="utf-8",
+                headers={"Cache-Control": "no-store"},
+            )
 
         coordinator = _coordinator(self.hass, self.coordinators_key, entry_id)
         if coordinator is None:
@@ -87,6 +96,7 @@ class DeskScreenResourceView(HomeAssistantView):
         host = str(entry.data[CONF_HOST])
         port = int(entry.data.get(CONF_PORT, DEFAULT_PORT))
         token = str(entry.data.get(CONF_TOKEN, ""))
+        bundled = await self.hass.async_add_executor_job(agent_hash)
         reachable = outdated = False
         if token:
             client = DeskAgentClient(
@@ -98,13 +108,13 @@ class DeskScreenResourceView(HomeAssistantView):
                 pass
             else:
                 reachable = True
-                bundled = await self.hass.async_add_executor_job(agent_hash)
                 outdated = metadata.agent_hash != bundled
         return self.json(
             {
                 "configured": bool(token),
                 "reachable": reachable,
                 "outdated": outdated,
+                "bundled_hash": bundled,
                 "host": host,
                 "port": port,
             }

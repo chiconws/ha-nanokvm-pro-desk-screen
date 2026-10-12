@@ -1,5 +1,6 @@
-const SECURITY_URL =
-  "https://github.com/chiconws/ha-nanokvm-pro-desk-screen/blob/main/SECURITY.md";
+const REPO_URL = "https://github.com/chiconws/ha-nanokvm-pro-desk-screen";
+const SECURITY_URL = `${REPO_URL}/blob/main/SECURITY.md`;
+const AGENT_SOURCE_PATH = "custom_components/nanokvm_pro_desk_screen/agent/runtime.py";
 const HOST_KEY_COMMAND = "for f in /etc/ssh/ssh_host_*_key.pub; do ssh-keygen -lf $f; done";
 
 const STRINGS = {
@@ -39,6 +40,9 @@ const STRINGS = {
     close: "Close",
     sec_root:
       "Installs a service that runs as <b>root</b> on the Desk, in <code>/userapp/nanokvm-desk-agent</code>.",
+    sec_code: "View the exact code that will be installed",
+    sec_code_github: "this version on GitHub",
+    sec_code_failed: "Could not load the agent code.",
     sec_api: "Its API only exposes the front screen and touch and knob input.",
     sec_http:
       "It listens on port {port} over <b>unencrypted HTTP</b>, protected by a token. Anyone who captures the token on the network gets the same access: keep the Desk on a trusted LAN or VPN.",
@@ -114,6 +118,9 @@ const STRINGS = {
     close: "Fechar",
     sec_root:
       "Instala um serviço que roda como <b>root</b> no Desk, em <code>/userapp/nanokvm-desk-agent</code>.",
+    sec_code: "Ver o código exato que será instalado",
+    sec_code_github: "esta versão no GitHub",
+    sec_code_failed: "Não foi possível carregar o código do agente.",
     sec_api: "A API dele só expõe a tela frontal e o envio de toque e knob.",
     sec_http:
       "Ele escuta na porta {port} em <b>HTTP sem criptografia</b>, protegido por um token. Quem capturar o token na rede ganha o mesmo acesso: mantenha o Desk em uma LAN confiável ou VPN.",
@@ -753,7 +760,13 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
           }
           <div ${confirm ? "hidden" : ""}>
             <ul class="security-note">
-              <li>${this._t("sec_root")}</li>
+              <li>${this._t("sec_root")}
+                <a href="#" id="agent-source">${this._t("sec_code")}</a>
+                (${
+                  this._agentStatus?.bundled_hash
+                    ? `<code>${this._escape(this._agentStatus.bundled_hash)}</code>, `
+                    : ""
+                }<a href="${REPO_URL}/blob/v${this._escape(this._panel.config.version)}/${AGENT_SOURCE_PATH}" target="_blank" rel="noreferrer">${this._t("sec_code_github")}</a>)</li>
               <li>${this._t("sec_api")}</li>
               <li>${this._t("sec_http", { port })}</li>
               <li>${this._t("sec_secrets")}
@@ -950,6 +963,11 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       this._render();
     });
 
+    this.shadowRoot.getElementById("agent-source")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      this._openAgentSource();
+    });
+
     // Enter in any field submits the form, which is the install button.
     this.shadowRoot.getElementById("agent-form")?.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -963,6 +981,23 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
         this._agentConfirm?.resolve(button.dataset.confirm === "yes"),
       );
     });
+  }
+
+  // Open the file Home Assistant would upload, as served by this installation.
+  async _openAgentSource() {
+    // Opened before the fetch so the browser ties the new tab to the click.
+    const tab = window.open("", "_blank");
+    try {
+      const response = await this._hass.fetchWithAuth(`${this._selected.agent_url}.py`);
+      if (!response.ok) {
+        throw new Error(response.statusText);
+      }
+      const blob = new Blob([await response.text()], { type: "text/plain;charset=utf-8" });
+      tab.location.href = URL.createObjectURL(blob);
+    } catch (_err) {
+      tab?.close();
+      this._setAgentMessage(this._t("sec_code_failed"));
+    }
   }
 
   // Show a question inside the dialog; resolves to true when accepted.
