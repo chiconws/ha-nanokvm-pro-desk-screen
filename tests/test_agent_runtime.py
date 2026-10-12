@@ -23,6 +23,8 @@ from custom_components.nanokvm_pro_desk_screen.agent.runtime import (
     KEY_ENTER,
     REL_X,
     AgentConfig,
+    bounded_float,
+    bounded_int,
     create_server,
     load_config,
     logical_to_physical,
@@ -256,3 +258,19 @@ def test_write_touch_tap_generates_touch_down_and_release(tmp_path: Path) -> Non
     assert (EV_ABS, ABS_MT_TRACKING_ID, -1) in events
     assert (EV_KEY, BTN_TOUCH, 1) in events
     assert (EV_KEY, BTN_TOUCH, 0) in events
+
+
+def test_rotary_and_key_never_fall_back_to_the_touchscreen() -> None:
+    paths = resolve_input_paths(
+        [{"event": "event0", "path": "/dev/input/event0", "name": "hyn_ts"}]
+    )
+
+    assert paths == {"touch": "/dev/input/event0", "rotary": None, "key": None}
+
+
+@pytest.mark.parametrize("value", ["nan", float("nan"), float("inf"), "1e999"])
+def test_bounded_numbers_reject_non_finite_values(value: object) -> None:
+    with pytest.raises(ValueError):
+        bounded_float(value, 0.01, 5.0, "press_seconds")
+    with pytest.raises(ValueError):
+        bounded_int(value, 1, 50, "notches")
