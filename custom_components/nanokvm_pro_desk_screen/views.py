@@ -13,17 +13,16 @@ from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.http import HomeAssistantView
 
-from .agent_client import ScreenMetadata
-from .agent_installer import (
+from .agent.client import ScreenMetadata
+from .agent.installer import (
     DEFAULT_AGENT_BIND,
     DEFAULT_AGENT_FPS,
     agent_status,
     install_agent,
     uninstall_agent,
 )
+from .agent.ssh import ConnectionConfig, RemoteCommandError, SSHClient
 from .const import CONF_PORT, CONF_TOKEN, DEFAULT_PORT, DEFAULT_SSH_PORT, DOMAIN
-from .install_config import ConnectionConfig
-from .ssh import RemoteCommandError, SSHClient
 
 
 class DeskScreenResourceView(HomeAssistantView):

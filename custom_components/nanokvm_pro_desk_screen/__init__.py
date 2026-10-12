@@ -11,7 +11,7 @@ from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .agent_client import DeskAgentClient
+from .agent.client import DeskAgentClient
 from .const import (
     CONF_PORT,
     CONF_TOKEN,

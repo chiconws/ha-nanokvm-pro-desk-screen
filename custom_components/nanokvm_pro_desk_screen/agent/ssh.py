@@ -1,13 +1,25 @@
-"""Small Paramiko wrapper used by manual Desk agent install tooling."""
+"""Small Paramiko wrapper used to install and manage the Desk agent."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
 
 import paramiko
 
-from .install_config import ConnectionConfig
+
+@dataclass(frozen=True)
+class ConnectionConfig:
+    """SSH connection settings.
+
+    The password is excluded from repr so accidental debug output does not leak it.
+    """
+
+    host: str
+    user: str
+    password: str | None = field(default=None, repr=False)
+    port: int = 22
+    timeout: float = 10.0
+    strict_host_key: bool = False
 
 
 @dataclass
@@ -61,33 +73,15 @@ class SSHClient:
             self._client.close()
             self._client = None
 
-    def run(self, command: str, timeout: float | None = None) -> tuple[str, str, int]:
-        stdout, stderr, exit_status = self.run_bytes(command, timeout=timeout)
-        return stdout.decode(errors="replace"), stderr.decode(errors="replace"), exit_status
-
-    def run_bytes(self, command: str, timeout: float | None = None) -> tuple[bytes, bytes, int]:
-        stdin, stdout, stderr = self.open_command(command, timeout=timeout or self.config.timeout)
-        stdin.close()
-
-        stdout_bytes = stdout.read()
-        stderr_bytes = stderr.read()
-        exit_status = stdout.channel.recv_exit_status()
-
-        return stdout_bytes, stderr_bytes, exit_status
-
-    def open_command(
-        self,
-        command: str,
-        timeout: float | None = None,
-    ) -> tuple[Any, Any, Any]:
+    def run(self, command: str) -> tuple[str, str, int]:
         if self._client is None:
             raise RuntimeError("SSH client is not connected")
 
-        return self._client.exec_command(
-            command,
-            timeout=timeout,
-            get_pty=False,
-        )
+        stdin, stdout, stderr = self._client.exec_command(command, timeout=self.config.timeout)
+        stdin.close()
+        out = stdout.read().decode(errors="replace")
+        err = stderr.read().decode(errors="replace")
+        return out, err, stdout.channel.recv_exit_status()
 
     def open_sftp(self) -> paramiko.SFTPClient:
         if self._client is None:

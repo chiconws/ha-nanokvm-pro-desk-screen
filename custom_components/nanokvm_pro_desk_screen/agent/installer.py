@@ -324,7 +324,7 @@ def upload_text(remote: SSHClient, path: str, content: str, *, mode: str) -> Non
 
 
 def agent_source() -> str:
-    return (Path(__file__).parent / "agent_runtime.py").read_text(encoding="utf-8")
+    return (Path(__file__).parent / "runtime.py").read_text(encoding="utf-8")
 
 
 def agent_url(host: str, port: int, token: str) -> str:

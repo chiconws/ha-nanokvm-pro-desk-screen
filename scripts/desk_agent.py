@@ -14,7 +14,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from custom_components.nanokvm_pro_desk_screen.agent_installer import (  # noqa: E402
+from custom_components.nanokvm_pro_desk_screen.agent.installer import (  # noqa: E402
     DEFAULT_AGENT_BIND,
     DEFAULT_AGENT_FPS,
     DEFAULT_AGENT_PORT,
@@ -22,10 +22,10 @@ from custom_components.nanokvm_pro_desk_screen.agent_installer import (  # noqa:
     install_agent,
     uninstall_agent,
 )
-from custom_components.nanokvm_pro_desk_screen.install_config import (  # noqa: E402
+from custom_components.nanokvm_pro_desk_screen.agent.ssh import (  # noqa: E402
     ConnectionConfig,
+    SSHClient,
 )
-from custom_components.nanokvm_pro_desk_screen.ssh import SSHClient  # noqa: E402
 
 
 def main(argv: Sequence[str] | None = None) -> int:
