@@ -1,0 +1,6 @@
+homeassistant==2025.1.4
+paramiko>=3.4
+pillow>=10.0
+pytest>=8.0
+ruff>=0.6
+types-paramiko

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
 from datetime import timedelta
-from typing import Any
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
@@ -14,17 +13,10 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .agent_client import DeskAgentClient, ScreenMetadata
 from .const import DEFAULT_SCAN_INTERVAL_SECONDS, DOMAIN
 
-
-@dataclass(frozen=True)
-class DeskScreenData:
-    """Current Desk screen agent state."""
-
-    health: dict[str, Any]
-    metadata: ScreenMetadata
-    probe: dict[str, Any]
+_LOGGER = logging.getLogger(__name__)
 
 
-class DeskScreenDataUpdateCoordinator(DataUpdateCoordinator[DeskScreenData]):
+class DeskScreenDataUpdateCoordinator(DataUpdateCoordinator[ScreenMetadata]):
     """Poll the installed NanoKVM Pro Desk screen agent."""
 
     config_entry: ConfigEntry
@@ -38,20 +30,16 @@ class DeskScreenDataUpdateCoordinator(DataUpdateCoordinator[DeskScreenData]):
         """Initialize the coordinator."""
         super().__init__(
             hass,
-            logger=__import__("logging").getLogger(__name__),
+            logger=_LOGGER,
             name=DOMAIN,
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL_SECONDS),
             config_entry=config_entry,
         )
         self.client = client
 
-    async def _async_update_data(self) -> DeskScreenData:
-        """Fetch current Desk screen agent state."""
+    async def _async_update_data(self) -> ScreenMetadata:
+        """Fetch the screen metadata; this doubles as the agent reachability check."""
         try:
-            health = await self.client.async_health()
-            metadata = await self.client.async_metadata()
-            probe = await self.client.async_probe()
+            return await self.client.async_metadata()
         except (TimeoutError, aiohttp.ClientError) as err:
             raise UpdateFailed(f"Desk screen agent unavailable: {err}") from err
-
-        return DeskScreenData(health=health, metadata=metadata, probe=probe)
