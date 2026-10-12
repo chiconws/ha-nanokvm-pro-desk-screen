@@ -155,6 +155,11 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
                     fps,
                     reset_token,
                 )
+                # Wait before saving: saving reloads the entry, and its first
+                # poll should find the restarted agent.
+                answers = await _agent_answers(
+                    self.hass, ssh_config.host, agent_port, result.token
+                )
                 _update_entry_after_install(
                     self.hass,
                     coordinator,
@@ -162,9 +167,7 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
                     port=agent_port,
                     token=result.token,
                 )
-                if not await _agent_answers(
-                    self.hass, ssh_config.host, agent_port, result.token
-                ):
+                if not answers:
                     return self.json_message(
                         "Agent was installed but does not answer on "
                         f"{ssh_config.host}:{agent_port}",
