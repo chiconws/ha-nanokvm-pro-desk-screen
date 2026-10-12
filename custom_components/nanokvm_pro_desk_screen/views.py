@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from http import HTTPStatus
 from typing import Any
 
@@ -11,9 +12,10 @@ from aiohttp import web
 from homeassistant.components.http import require_admin
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.http import HomeAssistantView
 
-from .agent.client import ScreenMetadata
+from .agent.client import DeskAgentClient, ScreenMetadata
 from .agent.installer import (
     DEFAULT_AGENT_BIND,
     DEFAULT_AGENT_FPS,
@@ -23,6 +25,8 @@ from .agent.installer import (
 )
 from .agent.ssh import ConnectionConfig, RemoteCommandError, SSHClient
 from .const import CONF_PORT, CONF_TOKEN, DEFAULT_PORT, DEFAULT_SSH_PORT, DOMAIN
+
+AGENT_START_ATTEMPTS = 10
 
 
 class DeskScreenResourceView(HomeAssistantView):
@@ -151,6 +155,11 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
                     fps,
                     reset_token,
                 )
+                # Wait before saving: saving reloads the entry, and its first
+                # poll should find the restarted agent.
+                answers = await _agent_answers(
+                    self.hass, ssh_config.host, agent_port, result.token
+                )
                 _update_entry_after_install(
                     self.hass,
                     coordinator,
@@ -158,6 +167,13 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
                     port=agent_port,
                     token=result.token,
                 )
+                if not answers:
+                    return self.json_message(
+                        "Agent was installed but does not answer on "
+                        f"{ssh_config.host}:{agent_port}",
+                        HTTPStatus.BAD_GATEWAY,
+                    )
+                self.hass.async_create_task(coordinator.async_request_refresh())
                 return self.json(
                     {
                         "ok": True,
@@ -267,6 +283,21 @@ def _float_from_payload(payload: dict[str, Any], key: str, default: float) -> fl
     if parsed <= 0:
         raise ValueError(f"{key} must be greater than zero")
     return parsed
+
+
+async def _agent_answers(hass: HomeAssistant, host: str, port: int, token: str) -> bool:
+    """Wait for a freshly (re)started agent to answer with the installed token."""
+    client = DeskAgentClient(
+        session=async_get_clientsession(hass), host=host, port=port, token=token
+    )
+    for _ in range(AGENT_START_ATTEMPTS):
+        try:
+            await client.async_metadata()
+        except (TimeoutError, aiohttp.ClientError):
+            await asyncio.sleep(1)
+        else:
+            return True
+    return False
 
 
 def _agent_status(config: ConnectionConfig) -> dict[str, object]:
