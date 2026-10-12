@@ -274,3 +274,28 @@ def test_bounded_numbers_reject_non_finite_values(value: object) -> None:
         bounded_float(value, 0.01, 5.0, "press_seconds")
     with pytest.raises(ValueError):
         bounded_int(value, 1, 50, "notches")
+
+
+def test_agent_serves_single_frames_without_using_stream_slots(tmp_path: Path) -> None:
+    frame = b"\x00\xf8\xe0\x07"
+    framebuffer = tmp_path / "fb0"
+    framebuffer.write_bytes(frame)
+    config = AgentConfig(
+        bind="127.0.0.1",
+        port=0,
+        token="secret-token",
+        physical_width=2,
+        physical_height=1,
+        logical_width=2,
+        logical_height=1,
+        framebuffer=str(framebuffer),
+        max_streams=1,
+    )
+
+    with running_agent(config) as base_url:
+        for _ in range(5):
+            request = Request(f"{base_url}/api/screen/frame")
+            request.add_header("X-NanoKVM-Desk-Token", "secret-token")
+            with urlopen(request, timeout=2) as response:
+                assert response.headers["Content-Length"] == str(len(frame))
+                assert response.read() == frame

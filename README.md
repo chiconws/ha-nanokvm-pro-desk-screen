@@ -110,6 +110,7 @@ Agent API endpoints require `Authorization: Bearer <token>` or
 | `/api/health` | Agent health |
 | `/api/probe` | Capability report |
 | `/api/screen/metadata` | RGB565 screen metadata |
+| `/api/screen/frame` | One raw RGB565 frame |
 | `/api/screen/raw` | Raw RGB565 frame stream |
 | `/api/input/tap` | Touch tap |
 | `/api/input/swipe` | Touch swipe |
