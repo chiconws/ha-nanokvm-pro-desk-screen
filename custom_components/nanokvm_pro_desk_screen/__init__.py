@@ -78,7 +78,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await _async_register_panel(hass)
     else:
         frontend.async_remove_panel(hass, PANEL_FRONTEND_URL_PATH, warn_if_unknown=False)
-        domain_data[DATA_COORDINATORS] = coordinators
 
     return True
 
@@ -112,7 +111,6 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
             {
                 "entry_id": entry.entry_id,
                 "title": entry.title,
-                "metadata_url": f"/api/{DOMAIN}/{entry.entry_id}/metadata",
                 "snapshot_url": f"/api/{DOMAIN}/{entry.entry_id}/snapshot.jpg",
                 "input_url": f"/api/{DOMAIN}/{entry.entry_id}/input",
                 "agent_url": f"/api/{DOMAIN}/{entry.entry_id}/agent",

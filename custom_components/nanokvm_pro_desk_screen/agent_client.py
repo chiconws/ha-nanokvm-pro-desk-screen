@@ -52,14 +52,6 @@ class DeskAgentClient:
         """Return authentication headers for the Desk agent."""
         return {"X-NanoKVM-Desk-Token": self.token}
 
-    async def async_health(self) -> dict[str, Any]:
-        """Fetch the Desk agent health response."""
-        return await self._async_get_json("/api/health")
-
-    async def async_probe(self) -> dict[str, Any]:
-        """Fetch the Desk agent probe response."""
-        return await self._async_get_json("/api/probe")
-
     async def async_metadata(self) -> ScreenMetadata:
         """Fetch screen metadata."""
         payload = await self._async_get_json("/api/screen/metadata")

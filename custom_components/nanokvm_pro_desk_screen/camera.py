@@ -43,11 +43,7 @@ class DeskScreenCamera(NanoKVMProDeskScreenEntity, Camera):  # pyright: ignore[r
         height: int | None = None,
     ) -> bytes | None:
         """Return one still image from the installed agent."""
-        metadata = (
-            self.coordinator.data.metadata
-            if self.coordinator.data is not None
-            else ScreenMetadata()
-        )
+        metadata = self.coordinator.data or ScreenMetadata()
         try:
             return await self.coordinator.client.async_snapshot_jpeg(metadata)
         except Exception as err:

@@ -45,20 +45,8 @@ class DeskScreenResourceView(HomeAssistantView):
             return self.json_message("Entry not found", HTTPStatus.NOT_FOUND)
 
         try:
-            if resource == "metadata":
-                metadata = (
-                    coordinator.data.metadata
-                    if coordinator.data is not None
-                    else await coordinator.client.async_metadata()
-                )
-                return self.json(_metadata_dict(metadata))
-
             if resource == "snapshot.jpg":
-                metadata = (
-                    coordinator.data.metadata
-                    if coordinator.data is not None
-                    else ScreenMetadata()
-                )
+                metadata = coordinator.data or ScreenMetadata()
                 image = await coordinator.client.async_snapshot_jpeg(metadata)
                 return web.Response(
                     body=image,
@@ -365,17 +353,3 @@ def _coordinator(
     domain_data = hass.data.get(DOMAIN, {})
     coordinators = domain_data.get(coordinators_key, {})
     return coordinators.get(entry_id)
-
-
-def _metadata_dict(metadata: ScreenMetadata) -> dict[str, object]:
-    """Serialize screen metadata."""
-    return {
-        "physical_width": metadata.physical_width,
-        "physical_height": metadata.physical_height,
-        "logical_width": metadata.logical_width,
-        "logical_height": metadata.logical_height,
-        "bits_per_pixel": metadata.bits_per_pixel,
-        "rotation": metadata.rotation,
-        "frame_size": metadata.frame_size,
-        "fps": metadata.fps,
-    }

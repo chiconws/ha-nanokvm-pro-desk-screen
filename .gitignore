@@ -23,5 +23,3 @@ snapshots/
 
 .vscode/
 mypy.ini
-requirements-dev.txt
-pyproject.toml
