@@ -10,6 +10,7 @@ import argparse
 import glob
 import hmac
 import json
+import math
 import os
 import struct
 import sys
@@ -419,7 +420,7 @@ def list_input_devices(input_root: str = DEFAULT_INPUT_ROOT) -> list[dict[str, s
 
 def resolve_input_paths(devices: list[dict[str, str]]) -> dict[str, str | None]:
     return {
-        "touch": resolve_device_path(devices, exact=("hyn_ts",), contains=("touch", "_ts")),
+        "touch": resolve_device_path(devices, exact=("hyn_ts",), contains=("touch", "_ts"), suffix="ts"),
         "rotary": resolve_device_path(devices, exact=("rotary@0",), contains=("rotary",)),
         "key": resolve_device_path(devices, exact=("gpio_keys",), contains=("keys",)),
     }
@@ -430,6 +431,7 @@ def resolve_device_path(
     *,
     exact: tuple[str, ...],
     contains: tuple[str, ...],
+    suffix: str | None = None,
 ) -> str | None:
     for expected in exact:
         for device in devices:
@@ -438,7 +440,7 @@ def resolve_device_path(
 
     for device in devices:
         lowered = device["name"].lower()
-        if any(fragment in lowered for fragment in contains) or lowered.endswith("ts"):
+        if any(fragment in lowered for fragment in contains) or (suffix and lowered.endswith(suffix)):
             return device["path"]
 
     return None
@@ -520,7 +522,7 @@ def bounded_float(value: object, minimum: float, maximum: float, name: str) -> f
             raise TypeError
     except (TypeError, ValueError) as err:
         raise ValueError(f"{name} must be a number") from err
-    if number < minimum or number > maximum:
+    if not math.isfinite(number) or number < minimum or number > maximum:
         raise ValueError(f"{name} must be between {minimum} and {maximum}")
     return number
 
@@ -537,7 +539,7 @@ def bounded_int(value: object, minimum: int, maximum: int, name: str) -> int:
             number = int(value)
         else:
             raise TypeError
-    except (TypeError, ValueError) as err:
+    except (TypeError, ValueError, OverflowError) as err:
         raise ValueError(f"{name} must be an integer") from err
     if number < minimum or number > maximum:
         raise ValueError(f"{name} must be between {minimum} and {maximum}")
