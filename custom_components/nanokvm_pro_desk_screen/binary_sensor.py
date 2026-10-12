@@ -31,12 +31,16 @@ class DeskAgentInstalledBinarySensor(  # pyright: ignore[reportIncompatibleVaria
     _attr_translation_key = "agent_installed"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_available = True
 
     def __init__(self, coordinator: DeskScreenDataUpdateCoordinator) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator, "agent_installed")
         self._attr_is_on = coordinator.last_update_success
+
+    @property
+    def available(self) -> bool:
+        """Stay available: an unreachable agent is the off state, not a missing one."""
+        return True
 
     @callback
     def _handle_coordinator_update(self) -> None:
