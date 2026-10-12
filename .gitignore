@@ -21,3 +21,4 @@ dist/
 snapshots/
 
 .vscode/
+!custom_components/*/brand/*.png
