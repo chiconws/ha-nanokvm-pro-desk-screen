@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from hmac import compare_digest
 from http import HTTPStatus
 from typing import Any
 
 import aiohttp
 import paramiko
 from aiohttp import web
+from homeassistant.components.http import require_admin
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.http import HomeAssistantView
@@ -31,24 +31,15 @@ class DeskScreenResourceView(HomeAssistantView):
 
     url = f"/api/{DOMAIN}/{{entry_id}}/{{resource}}"
     name = f"api:{DOMAIN}:resource"
-    requires_auth = False
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        coordinators_key: str,
-        panel_tokens_key: str,
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, coordinators_key: str) -> None:
         """Initialize the API view."""
         self.hass = hass
         self.coordinators_key = coordinators_key
-        self.panel_tokens_key = panel_tokens_key
 
+    @require_admin
     async def get(self, request: web.Request, entry_id: str, resource: str) -> web.Response:
         """Handle proxied GET requests."""
-        if not _valid_panel_request(self.hass, self.panel_tokens_key, entry_id, request):
-            return self.json_message("Unauthorized", HTTPStatus.UNAUTHORIZED)
-
         coordinator = _coordinator(self.hass, self.coordinators_key, entry_id)
         if coordinator is None:
             return self.json_message("Entry not found", HTTPStatus.NOT_FOUND)
@@ -85,24 +76,15 @@ class DeskScreenInputView(HomeAssistantView):
 
     url = f"/api/{DOMAIN}/{{entry_id}}/input/{{action}}"
     name = f"api:{DOMAIN}:input"
-    requires_auth = False
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        coordinators_key: str,
-        panel_tokens_key: str,
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, coordinators_key: str) -> None:
         """Initialize the input view."""
         self.hass = hass
         self.coordinators_key = coordinators_key
-        self.panel_tokens_key = panel_tokens_key
 
+    @require_admin
     async def post(self, request: web.Request, entry_id: str, action: str) -> web.Response:
         """Handle proxied input requests."""
-        if not _valid_panel_request(self.hass, self.panel_tokens_key, entry_id, request):
-            return self.json_message("Unauthorized", HTTPStatus.UNAUTHORIZED)
-
         coordinator = _coordinator(self.hass, self.coordinators_key, entry_id)
         if coordinator is None:
             return self.json_message("Entry not found", HTTPStatus.NOT_FOUND)
@@ -129,24 +111,15 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
 
     url = f"/api/{DOMAIN}/{{entry_id}}/agent/{{action}}"
     name = f"api:{DOMAIN}:agent"
-    requires_auth = False
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        coordinators_key: str,
-        panel_tokens_key: str,
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, coordinators_key: str) -> None:
         """Initialize the agent lifecycle view."""
         self.hass = hass
         self.coordinators_key = coordinators_key
-        self.panel_tokens_key = panel_tokens_key
 
+    @require_admin
     async def post(self, request: web.Request, entry_id: str, action: str) -> web.Response:
         """Handle agent lifecycle requests from the admin panel."""
-        if not _valid_panel_request(self.hass, self.panel_tokens_key, entry_id, request):
-            return self.json_message("Unauthorized", HTTPStatus.UNAUTHORIZED)
-
         coordinator = _coordinator(self.hass, self.coordinators_key, entry_id)
         if coordinator is None:
             return self.json_message("Entry not found", HTTPStatus.NOT_FOUND)
@@ -368,18 +341,13 @@ def _update_entry_after_install(
     port: int,
     token: str,
 ) -> None:
-    """Persist the installed agent endpoint and update the live client."""
+    """Persist the installed agent endpoint; the entry update listener reloads it."""
     entry = coordinator.config_entry
     data = dict(entry.data)
     data[CONF_HOST] = host
     data[CONF_PORT] = port
     data[CONF_TOKEN] = token
     hass.config_entries.async_update_entry(entry, data=data)
-
-    coordinator.client.host = host
-    coordinator.client.port = port
-    coordinator.client.token = token
-    hass.async_create_task(coordinator.async_request_refresh())
 
 
 def _clear_entry_after_uninstall(hass: HomeAssistant, coordinator: Any) -> None:
@@ -389,9 +357,6 @@ def _clear_entry_after_uninstall(hass: HomeAssistant, coordinator: Any) -> None:
     data[CONF_TOKEN] = ""
     hass.config_entries.async_update_entry(entry, data=data)
 
-    coordinator.client.token = ""
-    hass.async_create_task(coordinator.async_request_refresh())
-
 
 def _coordinator(
     hass: HomeAssistant, coordinators_key: str, entry_id: str
@@ -400,24 +365,6 @@ def _coordinator(
     domain_data = hass.data.get(DOMAIN, {})
     coordinators = domain_data.get(coordinators_key, {})
     return coordinators.get(entry_id)
-
-
-def _valid_panel_request(
-    hass: HomeAssistant,
-    panel_tokens_key: str,
-    entry_id: str,
-    request: web.Request,
-) -> bool:
-    """Return whether the request carries the generated panel token."""
-    domain_data = hass.data.get(DOMAIN, {})
-    expected = str(domain_data.get(panel_tokens_key, {}).get(entry_id, ""))
-    if not expected:
-        return False
-
-    supplied = request.headers.get("X-NanoKVM-Panel-Token", "")
-    if not supplied:
-        supplied = request.query.get("panel_token", "")
-    return bool(supplied) and compare_digest(supplied, expected)
 
 
 def _metadata_dict(metadata: ScreenMetadata) -> dict[str, object]:

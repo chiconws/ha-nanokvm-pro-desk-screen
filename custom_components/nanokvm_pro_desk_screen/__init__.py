@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from secrets import token_urlsafe
 
 from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
@@ -33,7 +32,6 @@ from .views import (
 
 DATA_COORDINATORS = "coordinators"
 DATA_HTTP_REGISTERED = "http_registered"
-DATA_PANEL_TOKENS = "panel_tokens"
 DATA_STATIC_REGISTERED = "static_registered"
 
 
@@ -57,7 +55,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await _async_register_panel(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     return True
+
+
+async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload after the agent host, port or token changed."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -69,7 +73,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     domain_data = hass.data.get(DOMAIN, {})
     coordinators = domain_data.get(DATA_COORDINATORS, {})
     coordinators.pop(entry.entry_id, None)
-    domain_data.get(DATA_PANEL_TOKENS, {}).pop(entry.entry_id, None)
 
     if coordinators:
         await _async_register_panel(hass)
@@ -97,22 +100,14 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         domain_data[DATA_STATIC_REGISTERED] = True
 
     if not domain_data.get(DATA_HTTP_REGISTERED):
-        hass.http.register_view(
-            DeskScreenResourceView(hass, DATA_COORDINATORS, DATA_PANEL_TOKENS)
-        )
-        hass.http.register_view(
-            DeskScreenInputView(hass, DATA_COORDINATORS, DATA_PANEL_TOKENS)
-        )
-        hass.http.register_view(
-            DeskScreenAgentLifecycleView(hass, DATA_COORDINATORS, DATA_PANEL_TOKENS)
-        )
+        hass.http.register_view(DeskScreenResourceView(hass, DATA_COORDINATORS))
+        hass.http.register_view(DeskScreenInputView(hass, DATA_COORDINATORS))
+        hass.http.register_view(DeskScreenAgentLifecycleView(hass, DATA_COORDINATORS))
         domain_data[DATA_HTTP_REGISTERED] = True
 
     entries = []
-    panel_tokens = domain_data.setdefault(DATA_PANEL_TOKENS, {})
     for coordinator in domain_data.get(DATA_COORDINATORS, {}).values():
         entry = coordinator.config_entry
-        panel_token = panel_tokens.setdefault(entry.entry_id, token_urlsafe(24))
         entries.append(
             {
                 "entry_id": entry.entry_id,
@@ -123,7 +118,6 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
                 "agent_url": f"/api/{DOMAIN}/{entry.entry_id}/agent",
                 "host": entry.data[CONF_HOST],
                 "port": entry.data.get(CONF_PORT, DEFAULT_PORT),
-                "panel_token": panel_token,
                 "agent_configured": bool(entry.data.get(CONF_TOKEN)),
                 "agent_installed": coordinator.last_update_success,
             }
