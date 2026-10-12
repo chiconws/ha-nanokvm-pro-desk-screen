@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import struct
 
-from custom_components.nanokvm_pro_desk_screen.agent_client import (
+from custom_components.nanokvm_pro_desk_screen.agent.client import (
     ScreenMetadata,
     rgb565_to_image,
     rgb565_to_jpeg,

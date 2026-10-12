@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from custom_components.nanokvm_pro_desk_screen.agent_installer import (
+from custom_components.nanokvm_pro_desk_screen.agent.installer import (
     AGENT_CONFIG,
     AGENT_DIR,
     AGENT_SCRIPT,
     INIT_SCRIPT,
     SERVICE_NAME,
     SYSTEMD_UNIT,
+    agent_source,
     agent_url,
     build_agent_config,
     build_init_script,
@@ -90,3 +91,10 @@ def test_uninstall_commands_remove_service_files_and_agent_dir() -> None:
 
 def test_agent_url_uses_fragment_token() -> None:
     assert agent_url("192.168.1.152", 8765, "abc") == "http://192.168.1.152:8765/#token=abc"
+
+
+def test_agent_source_is_the_stdlib_only_runtime() -> None:
+    source = agent_source()
+
+    assert source.startswith('"""Stdlib-only NanoKVM Desk agent')
+    assert "\nfrom ." not in source

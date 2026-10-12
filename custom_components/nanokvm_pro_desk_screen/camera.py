@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .agent_client import ScreenMetadata
+from .agent.client import ScreenMetadata
 from .const import DOMAIN
 from .entity import NanoKVMProDeskScreenEntity
 

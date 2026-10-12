@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .agent_client import DeskAgentClient, ScreenMetadata
+from .agent.client import DeskAgentClient, ScreenMetadata
 from .const import DEFAULT_SCAN_INTERVAL_SECONDS, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)

@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from custom_components.nanokvm_pro_desk_screen.agent_runtime import (
+from custom_components.nanokvm_pro_desk_screen.agent.runtime import (
     ABS_MT_POSITION_X,
     ABS_MT_POSITION_Y,
     ABS_MT_TRACKING_ID,
