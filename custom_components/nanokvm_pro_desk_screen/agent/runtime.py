@@ -175,6 +175,8 @@ class AgentRequestHandler(BaseHTTPRequestHandler):
             self.send_json(probe_state(self.runtime_config))
         elif path == "/api/screen/metadata":
             self.send_json(self.runtime_config.metadata())
+        elif path == "/api/screen/frame":
+            self.send_frame()
         elif path == "/api/screen/raw":
             self.stream_raw_screen()
         else:
@@ -236,6 +238,28 @@ class AgentRequestHandler(BaseHTTPRequestHandler):
             extra_headers={"WWW-Authenticate": "Bearer"},
         )
         return False
+
+    def send_frame(self) -> None:
+        config = self.runtime_config
+        try:
+            with open(config.framebuffer, "rb", buffering=0) as framebuffer:
+                frame = framebuffer.read(config.frame_size)
+            if len(frame) != config.frame_size:
+                raise OSError("short framebuffer read")
+        except OSError as err:
+            self.send_json(
+                {"ok": False, "error": type(err).__name__, "message": str(err)},
+                status=HTTPStatus.CONFLICT,
+            )
+            return
+
+        self.send_response(HTTPStatus.OK)
+        self.send_common_headers(
+            content_type="application/octet-stream",
+            content_length=len(frame),
+        )
+        self.end_headers()
+        self.wfile.write(frame)
 
     def stream_raw_screen(self) -> None:
         config = self.runtime_config

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from http import HTTPStatus
 from io import BytesIO
 from typing import Any
 
@@ -70,12 +71,26 @@ class DeskAgentClient:
         """Read one raw RGB565 frame and return it as JPEG."""
         timeout = aiohttp.ClientTimeout(total=10)
         async with self.session.get(
-            f"{self.base_url}/api/screen/raw",
+            f"{self.base_url}/api/screen/frame",
             headers=self.headers,
             timeout=timeout,
         ) as response:
-            response.raise_for_status()
-            frame = await response.content.readexactly(metadata.frame_size)
+            if response.status != HTTPStatus.NOT_FOUND:
+                response.raise_for_status()
+                frame = await response.read()
+            else:
+                frame = None
+
+        if frame is None:
+            # Agents installed before /api/screen/frame existed only have the
+            # endless stream; read one frame from it and drop the connection.
+            async with self.session.get(
+                f"{self.base_url}/api/screen/raw",
+                headers=self.headers,
+                timeout=timeout,
+            ) as response:
+                response.raise_for_status()
+                frame = await response.content.readexactly(metadata.frame_size)
 
         return await asyncio.get_running_loop().run_in_executor(
             None, rgb565_to_jpeg, frame, metadata
