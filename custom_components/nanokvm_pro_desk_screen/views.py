@@ -23,8 +23,21 @@ from .agent.installer import (
     install_agent,
     uninstall_agent,
 )
-from .agent.ssh import ConnectionConfig, RemoteCommandError, SSHClient
-from .const import CONF_PORT, CONF_TOKEN, DEFAULT_PORT, DEFAULT_SSH_PORT, DOMAIN
+from .agent.ssh import (
+    ConnectionConfig,
+    HostKeyMismatchError,
+    RemoteCommandError,
+    SSHClient,
+    probe_host_key,
+)
+from .const import (
+    CONF_PORT,
+    CONF_SSH_HOST_KEY,
+    CONF_TOKEN,
+    DEFAULT_PORT,
+    DEFAULT_SSH_PORT,
+    DOMAIN,
+)
 
 AGENT_START_ATTEMPTS = 10
 
@@ -122,18 +135,29 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
         if not isinstance(payload, dict):
             return self.json_message("JSON body must be an object", HTTPStatus.BAD_REQUEST)
 
+        entry = coordinator.config_entry
         try:
             ssh_config = _connection_config_from_payload(
-                payload, str(coordinator.config_entry.data[CONF_HOST])
+                payload,
+                str(entry.data[CONF_HOST]),
+                entry.data.get(CONF_SSH_HOST_KEY),
             )
         except ValueError as err:
             return self.json_message(str(err), HTTPStatus.BAD_REQUEST)
 
         try:
+            if ssh_config.host_key_fingerprint is None:
+                # Never send the password to a host whose key nobody confirmed.
+                key_type, fingerprint = await self.hass.async_add_executor_job(
+                    probe_host_key, ssh_config.host, ssh_config.port, ssh_config.timeout
+                )
+                return _host_key_response(self, "unknown", key_type, fingerprint)
+
             if action == "status":
                 status = await self.hass.async_add_executor_job(
                     _agent_status, ssh_config
                 )
+                _save_entry(self.hass, entry, ssh_host_key=ssh_config.host_key_fingerprint)
                 return self.json(_public_agent_status(status))
 
             if action == "install":
@@ -160,12 +184,13 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
                 answers = await _agent_answers(
                     self.hass, ssh_config.host, agent_port, result.token
                 )
-                _update_entry_after_install(
+                _save_entry(
                     self.hass,
-                    coordinator,
+                    entry,
                     host=ssh_config.host,
                     port=agent_port,
                     token=result.token,
+                    ssh_host_key=ssh_config.host_key_fingerprint,
                 )
                 if not answers:
                     return self.json_message(
@@ -189,11 +214,18 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
                 result = await self.hass.async_add_executor_job(
                     _uninstall_agent, ssh_config
                 )
-                if result.get("ok") is True:
-                    _clear_entry_after_uninstall(self.hass, coordinator)
+                changes = {CONF_TOKEN: ""} if result.get("ok") is True else {}
+                _save_entry(
+                    self.hass,
+                    entry,
+                    ssh_host_key=ssh_config.host_key_fingerprint,
+                    **changes,
+                )
                 return self.json(_public_uninstall_result(result))
         except ValueError as err:
             return self.json_message(str(err), HTTPStatus.BAD_REQUEST)
+        except HostKeyMismatchError as err:
+            return _host_key_response(self, "changed", err.key_type, err.fingerprint)
         except (
             OSError,
             RuntimeError,
@@ -215,8 +247,23 @@ def _input_path(action: str) -> str | None:
     }.get(action)
 
 
+def _host_key_response(
+    view: HomeAssistantView, reason: str, key_type: str, fingerprint: str
+) -> web.Response:
+    """Ask the panel to confirm the SSH host key before any login is attempted."""
+    return view.json(
+        {
+            "message": "SSH host key must be confirmed",
+            "reason": reason,
+            "key_type": key_type,
+            "host_key": fingerprint,
+        },
+        HTTPStatus.CONFLICT,
+    )
+
+
 def _connection_config_from_payload(
-    payload: dict[str, Any], default_host: str
+    payload: dict[str, Any], default_host: str, trusted_host_key: str | None
 ) -> ConnectionConfig:
     """Build an SSH connection config from a lifecycle request payload."""
     host = _str_from_payload(payload, "ssh_host", default_host)
@@ -243,6 +290,9 @@ def _connection_config_from_payload(
         password=password,
         port=port,
         timeout=timeout,
+        # A key the user just confirmed in the panel replaces the stored one.
+        host_key_fingerprint=_str_from_payload(payload, "ssh_host_key", "")
+        or trusted_host_key,
     )
 
 
@@ -351,29 +401,9 @@ def _public_uninstall_result(result: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _update_entry_after_install(
-    hass: HomeAssistant,
-    coordinator: Any,
-    *,
-    host: str,
-    port: int,
-    token: str,
-) -> None:
-    """Persist the installed agent endpoint; the entry update listener reloads it."""
-    entry = coordinator.config_entry
-    data = dict(entry.data)
-    data[CONF_HOST] = host
-    data[CONF_PORT] = port
-    data[CONF_TOKEN] = token
-    hass.config_entries.async_update_entry(entry, data=data)
-
-
-def _clear_entry_after_uninstall(hass: HomeAssistant, coordinator: Any) -> None:
-    """Clear the stored agent token after a successful uninstall."""
-    entry = coordinator.config_entry
-    data = dict(entry.data)
-    data[CONF_TOKEN] = ""
-    hass.config_entries.async_update_entry(entry, data=data)
+def _save_entry(hass: HomeAssistant, entry: Any, **changes: Any) -> None:
+    """Persist entry data changes; the entry update listener reloads it."""
+    hass.config_entries.async_update_entry(entry, data={**entry.data, **changes})
 
 
 def _coordinator(

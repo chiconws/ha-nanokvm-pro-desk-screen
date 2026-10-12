@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import socket
 from dataclasses import dataclass, field
 
 import paramiko
@@ -20,6 +21,7 @@ class ConnectionConfig:
     port: int = 22
     timeout: float = 10.0
     strict_host_key: bool = False
+    host_key_fingerprint: str | None = None
 
 
 @dataclass
@@ -32,6 +34,40 @@ class RemoteCommandError(Exception):
 
     def __str__(self) -> str:
         return f"{self.message} (exit {self.exit_status}): {self.stderr}".strip()
+
+
+class HostKeyMismatchError(paramiko.SSHException):
+    """Raised when the server key is not the one the user trusted."""
+
+    def __init__(self, key: paramiko.PKey) -> None:
+        super().__init__("SSH host key does not match the trusted key")
+        self.key_type = key.get_name()
+        self.fingerprint = key.fingerprint
+
+
+class _PinnedHostKey(paramiko.MissingHostKeyPolicy):
+    """Accept only the host key with the trusted fingerprint."""
+
+    def __init__(self, fingerprint: str) -> None:
+        self.fingerprint = fingerprint
+
+    def missing_host_key(
+        self, client: paramiko.SSHClient, hostname: str, key: paramiko.PKey
+    ) -> None:
+        if key.fingerprint != self.fingerprint:
+            raise HostKeyMismatchError(key)
+
+
+def probe_host_key(host: str, port: int, timeout: float) -> tuple[str, str]:
+    """Return the server's key type and fingerprint without authenticating."""
+    with socket.create_connection((host, port), timeout=timeout) as sock:
+        transport = paramiko.Transport(sock)
+        try:
+            transport.start_client(timeout=timeout)
+            key = transport.get_remote_server_key()
+            return key.get_name(), key.fingerprint
+        finally:
+            transport.close()
 
 
 class SSHClient:
@@ -50,9 +86,15 @@ class SSHClient:
 
     def connect(self) -> None:
         client = paramiko.SSHClient()
-        client.load_system_host_keys()
-        if not self.config.strict_host_key:
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        if self.config.host_key_fingerprint:
+            # No known_hosts loaded, so every connection goes through the pin.
+            client.set_missing_host_key_policy(
+                _PinnedHostKey(self.config.host_key_fingerprint)
+            )
+        else:
+            client.load_system_host_keys()
+            if not self.config.strict_host_key:
+                client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         use_keys = self.config.password is None
         client.connect(
