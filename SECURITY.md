@@ -22,6 +22,11 @@ copy these files over SSH:
 | `/etc/systemd/system/nanokvm-desk-agent.service` | systemd autostart, when available | `0644` |
 | `/etc/init.d/S99nanokvm-desk-agent` | init.d autostart fallback | `0755` |
 
+`agent.py` is a copy of
+[`agent/runtime.py`](custom_components/nanokvm_pro_desk_screen/agent/runtime.py),
+a single file that uses only the Python standard library. The sidebar agent
+dialog links to the exact copy your Home Assistant would upload, with its hash.
+
 The agent is uninstalled with:
 
 ```bash

@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.loader import async_get_integration
 
 from .agent.client import DeskAgentClient
 from .const import (
@@ -130,6 +131,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         frontend_url_path=PANEL_FRONTEND_URL_PATH,
         config={
             "entries": entries,
+            "version": str((await async_get_integration(hass, DOMAIN)).version),
             "_panel_custom": {
                 "name": PANEL_COMPONENT_NAME,
                 "js_url": PANEL_STATIC_URL,
