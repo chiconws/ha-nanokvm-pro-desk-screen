@@ -592,12 +592,35 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
     this._setAgentMessage("running...");
 
     try {
-      const response = await this._hass.fetchWithAuth(`${this._selected.agent_url}/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...this._readAgentForm(), ...extra }),
-      });
-      const data = await this._responseJson(response);
+      const body = { ...this._readAgentForm(), ...extra };
+      let response;
+      let data;
+      for (;;) {
+        response = await this._hass.fetchWithAuth(`${this._selected.agent_url}/${action}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        data = await this._responseJson(response);
+        if (response.status !== 409 || !data.host_key) {
+          break;
+        }
+        // The server has not sent the password yet; it wants the host key confirmed.
+        const intro =
+          data.reason === "changed"
+            ? `WARNING: the SSH host key of ${body.ssh_host} is NOT the one trusted before.`
+            : `First SSH connection to ${body.ssh_host} from Home Assistant.`;
+        const trusted = window.confirm(
+          `${intro}\n\n${data.key_type} ${data.host_key}\n\n` +
+            "Compare it with the output of this command on the Desk:\n" +
+            "for f in /etc/ssh/ssh_host_*_key.pub; do ssh-keygen -lf $f; done\n\n" +
+            "Trust this key?",
+        );
+        if (!trusted) {
+          throw new Error("SSH host key not trusted");
+        }
+        body.ssh_host_key = data.host_key;
+      }
       if (!response.ok) {
         throw new Error(data.message || `${response.status} ${response.statusText}`);
       }

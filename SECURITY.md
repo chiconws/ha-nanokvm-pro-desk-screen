@@ -108,6 +108,18 @@ When the sidebar installs or resets the agent token, the new Desk token is saved
 server-side in the Home Assistant config entry. The sidebar does not display the
 token-bearing standalone URL.
 
+Before the first SSH login the sidebar shows the Desk's SSH host key fingerprint
+and asks you to confirm it. Compare it with the Desk's own keys:
+
+```bash
+for f in /etc/ssh/ssh_host_*_key.pub; do ssh-keygen -lf $f; done
+```
+
+The confirmed fingerprint is saved in the config entry, and Home Assistant
+refuses to send the SSH password to a host that presents a different key until
+you confirm the new one. The command-line installer instead uses your own
+`known_hosts`; pass `--strict-host-key` to reject unknown hosts.
+
 The Home Assistant server still contacts the Desk agent over plain HTTP unless
 you place a trusted reverse proxy in front of the agent. Keep that traffic on a
 trusted LAN, VLAN, or VPN.
