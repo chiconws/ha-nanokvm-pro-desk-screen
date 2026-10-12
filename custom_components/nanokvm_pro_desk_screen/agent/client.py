@@ -24,6 +24,7 @@ class ScreenMetadata:
     rotation: str = "clockwise"
     frame_size: int = 110080
     fps: float = 12.0
+    agent_hash: str = ""
 
 
 class DeskAgentClient:
@@ -65,6 +66,7 @@ class DeskAgentClient:
             rotation=str(payload.get("rotation", "clockwise")),
             frame_size=int(payload.get("frame_size", 110080)),
             fps=float(payload.get("fps", 12.0)),
+            agent_hash=str(payload.get("agent_hash", "")),
         )
 
     async def async_snapshot_jpeg(self, metadata: ScreenMetadata) -> bytes:

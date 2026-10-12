@@ -19,7 +19,7 @@ from .agent.client import DeskAgentClient, ScreenMetadata
 from .agent.installer import (
     DEFAULT_AGENT_BIND,
     DEFAULT_AGENT_FPS,
-    agent_status,
+    agent_hash,
     install_agent,
     uninstall_agent,
 )
@@ -56,6 +56,9 @@ class DeskScreenResourceView(HomeAssistantView):
     @require_admin
     async def get(self, request: web.Request, entry_id: str, resource: str) -> web.Response:
         """Handle proxied GET requests."""
+        if resource == "agent":
+            return await self._agent_state(entry_id)
+
         coordinator = _coordinator(self.hass, self.coordinators_key, entry_id)
         if coordinator is None:
             return self.json_message("Entry not found", HTTPStatus.NOT_FOUND)
@@ -73,6 +76,39 @@ class DeskScreenResourceView(HomeAssistantView):
             return self.json_message(str(err), HTTPStatus.BAD_GATEWAY)
 
         return self.json_message("Resource not found", HTTPStatus.NOT_FOUND)
+
+
+    async def _agent_state(self, entry_id: str) -> web.Response:
+        """Report the agent state over HTTP only, so the panel needs no SSH for it."""
+        entry = self.hass.config_entries.async_get_entry(entry_id)
+        if entry is None or entry.domain != DOMAIN:
+            return self.json_message("Entry not found", HTTPStatus.NOT_FOUND)
+
+        host = str(entry.data[CONF_HOST])
+        port = int(entry.data.get(CONF_PORT, DEFAULT_PORT))
+        token = str(entry.data.get(CONF_TOKEN, ""))
+        reachable = outdated = False
+        if token:
+            client = DeskAgentClient(
+                session=async_get_clientsession(self.hass), host=host, port=port, token=token
+            )
+            try:
+                metadata = await client.async_metadata()
+            except (TimeoutError, aiohttp.ClientError):
+                pass
+            else:
+                reachable = True
+                bundled = await self.hass.async_add_executor_job(agent_hash)
+                outdated = metadata.agent_hash != bundled
+        return self.json(
+            {
+                "configured": bool(token),
+                "reachable": reachable,
+                "outdated": outdated,
+                "host": host,
+                "port": port,
+            }
+        )
 
 
 class DeskScreenInputView(HomeAssistantView):
@@ -153,13 +189,6 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
                 )
                 return _host_key_response(self, "unknown", key_type, fingerprint)
 
-            if action == "status":
-                status = await self.hass.async_add_executor_job(
-                    _agent_status, ssh_config
-                )
-                _save_entry(self.hass, entry, ssh_host_key=ssh_config.host_key_fingerprint)
-                return self.json(_public_agent_status(status))
-
             if action == "install":
                 agent_port = _int_from_payload(
                     payload,
@@ -184,7 +213,7 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
                 answers = await _agent_answers(
                     self.hass, ssh_config.host, agent_port, result.token
                 )
-                _save_entry(
+                changed = _save_entry(
                     self.hass,
                     entry,
                     host=ssh_config.host,
@@ -192,13 +221,16 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
                     token=result.token,
                     ssh_host_key=ssh_config.host_key_fingerprint,
                 )
+                if not changed:
+                    # Same host, port and token: reload anyway so the entities and
+                    # the panel pick up the restarted (possibly updated) agent.
+                    self.hass.config_entries.async_schedule_reload(entry.entry_id)
                 if not answers:
                     return self.json_message(
                         "Agent was installed but does not answer on "
                         f"{ssh_config.host}:{agent_port}",
                         HTTPStatus.BAD_GATEWAY,
                     )
-                self.hass.async_create_task(coordinator.async_request_refresh())
                 return self.json(
                     {
                         "ok": True,
@@ -350,12 +382,6 @@ async def _agent_answers(hass: HomeAssistant, host: str, port: int, token: str) 
     return False
 
 
-def _agent_status(config: ConnectionConfig) -> dict[str, object]:
-    """Fetch agent status through SSH."""
-    with SSHClient(config) as remote:
-        return agent_status(remote, host=config.host)
-
-
 def _install_agent(
     config: ConnectionConfig,
     bind: str,
@@ -381,14 +407,6 @@ def _uninstall_agent(config: ConnectionConfig) -> dict[str, object]:
         return uninstall_agent(remote)
 
 
-def _public_agent_status(status: dict[str, object]) -> dict[str, object]:
-    """Strip token-bearing status fields before returning to the browser."""
-    public = dict(status)
-    public.pop("url", None)
-    public["ok"] = True
-    return public
-
-
 def _public_uninstall_result(result: dict[str, object]) -> dict[str, object]:
     """Return uninstall output without large noisy fields."""
     exit_status_value = result.get("exit_status", 0)
@@ -401,9 +419,9 @@ def _public_uninstall_result(result: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _save_entry(hass: HomeAssistant, entry: Any, **changes: Any) -> None:
-    """Persist entry data changes; the entry update listener reloads it."""
-    hass.config_entries.async_update_entry(entry, data={**entry.data, **changes})
+def _save_entry(hass: HomeAssistant, entry: Any, **changes: Any) -> bool:
+    """Persist entry data changes; the entry update listener reloads it if any."""
+    return hass.config_entries.async_update_entry(entry, data={**entry.data, **changes})
 
 
 def _coordinator(

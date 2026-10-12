@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .agent.client import DeskAgentClient
+from .agent.installer import agent_hash
 from .const import (
     CONF_PORT,
     CONF_TOKEN,
@@ -30,6 +31,7 @@ from .views import (
     DeskScreenResourceView,
 )
 
+DATA_AGENT_HASH = "agent_hash"
 DATA_COORDINATORS = "coordinators"
 DATA_HTTP_REGISTERED = "http_registered"
 DATA_STATIC_REGISTERED = "static_registered"
@@ -52,6 +54,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     domain_data = hass.data.setdefault(DOMAIN, {})
     domain_data.setdefault(DATA_COORDINATORS, {})[entry.entry_id] = coordinator
+    domain_data[DATA_AGENT_HASH] = await hass.async_add_executor_job(agent_hash)
 
     await _async_register_panel(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -118,6 +121,8 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
                 "port": entry.data.get(CONF_PORT, DEFAULT_PORT),
                 "agent_configured": bool(entry.data.get(CONF_TOKEN)),
                 "agent_installed": coordinator.last_update_success,
+                "agent_outdated": coordinator.last_update_success
+                and coordinator.data.agent_hash != domain_data[DATA_AGENT_HASH],
             }
         )
 

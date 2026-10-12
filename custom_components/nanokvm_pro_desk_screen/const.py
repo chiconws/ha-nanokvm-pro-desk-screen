@@ -13,7 +13,7 @@ DEFAULT_SCAN_INTERVAL_SECONDS = 15
 
 PANEL_COMPONENT_NAME = "nanokvm-pro-desk-screen-panel"
 PANEL_FRONTEND_URL_PATH = "nanokvm-pro-desk-screen"
-PANEL_STATIC_URL = f"/{DOMAIN}/frontend/nanokvm-pro-desk-screen-panel.js?v=15"
+PANEL_STATIC_URL = f"/{DOMAIN}/frontend/nanokvm-pro-desk-screen-panel.js?v=16"
 
 PLATFORMS = [
     "binary_sensor",
