@@ -14,6 +14,7 @@ from custom_components.nanokvm_pro_desk_screen.agent.installer import (
     build_systemd_unit,
     init_install_commands,
     systemd_install_commands,
+    uninstall_agent,
     uninstall_commands,
 )
 
@@ -98,3 +99,23 @@ def test_agent_source_is_the_stdlib_only_runtime() -> None:
 
     assert source.startswith('"""Stdlib-only NanoKVM Desk agent')
     assert "\nfrom ." not in source
+
+
+class _FakeRemote:
+    def __init__(self, exit_status: int) -> None:
+        self.exit_status = exit_status
+        self.commands: list[str] = []
+
+    def run(self, command: str) -> tuple[str, str, int]:
+        self.commands.append(command)
+        return "", "", self.exit_status
+
+
+def test_uninstall_reports_leftover_files_as_failure() -> None:
+    assert uninstall_agent(_FakeRemote(0))["ok"] is True
+
+    remote = _FakeRemote(1)
+    assert uninstall_agent(remote)["ok"] is False
+    # the leftover check must be the last command, so its status is the result
+    assert remote.commands[0].endswith(uninstall_commands()[-1])
+    assert uninstall_commands()[-1].startswith("! [ -e ")

@@ -272,6 +272,8 @@ def uninstall_commands() -> list[str]:
         f"rm -f /etc/rc.d/S99{SERVICE_NAME}",
         f"rm -rf {AGENT_DIR}",
         "systemctl daemon-reload 2>/dev/null || true",
+        # Last, so the exit status says whether anything is left behind.
+        f"! [ -e {AGENT_DIR} -o -e {SYSTEMD_UNIT} -o -e {INIT_SCRIPT} ]",
     ]
 
 
