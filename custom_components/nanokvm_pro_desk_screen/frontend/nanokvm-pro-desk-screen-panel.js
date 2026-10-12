@@ -3,8 +3,9 @@ const SECURITY_URL =
 
 class NanoKVMProDeskScreenPanel extends HTMLElement {
   set hass(hass) {
+    const first = !this._hass;
     this._hass = hass;
-    if (this._selected && !this._refreshTimer) {
+    if (first && this._selected) {
       this._startRefresh();
     }
   }
@@ -36,7 +37,7 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
 
     const currentIndex = Number(this._selectedIndex || 0);
     const selected = entries[Math.min(currentIndex, Math.max(entries.length - 1, 0))];
-    const agentReachable = selected ? this._agentReachable(selected) : false;
+    const agentReachable = Boolean(selected?.agent_installed);
     const setupRequired = selected ? !selected.agent_configured || !agentReachable : false;
 
     this.shadowRoot.innerHTML = `
@@ -591,13 +592,9 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
     this._setAgentMessage("running...");
 
     try {
-      const response = await fetch(`${this._selected.agent_url}/${action}`, {
+      const response = await this._hass.fetchWithAuth(`${this._selected.agent_url}/${action}`, {
         method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-NanoKVM-Panel-Token": this._selected.panel_token,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...this._readAgentForm(), ...extra }),
       });
       const data = await this._responseJson(response);
@@ -686,31 +683,37 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
     }
 
     let stopped = false;
-    const refresh = () => {
-      if (stopped || !this.isConnected || !this._selected) {
+    const refresh = async () => {
+      if (stopped || !this.isConnected || !this._selected || !this._hass) {
         return;
       }
-      const separator = this._selected.snapshot_url.includes("?") ? "&" : "?";
-      image.src = `${this._selected.snapshot_url}${separator}panel_token=${
-        this._selected.panel_token
-      }&t=${Date.now()}`;
-    };
-
-    image.onload = () => {
-      this._setAgentReachable(true);
-      this._setStatus("live");
-      this._setScreenMessage("");
-      this._refreshTimer = window.setTimeout(refresh, 350);
-    };
-    image.onerror = () => {
-      this._setAgentReachable(false);
-      this._setStatus("screen unavailable");
-      this._setScreenMessage("Screen snapshot unavailable");
-      this._refreshTimer = window.setTimeout(refresh, 1500);
+      let ok = false;
+      try {
+        const response = await this._hass.fetchWithAuth(this._selected.snapshot_url);
+        if (response.ok) {
+          const url = URL.createObjectURL(await response.blob());
+          URL.revokeObjectURL(image.src);
+          image.src = url;
+          ok = true;
+        }
+      } catch (_err) {
+        // fall through to the unavailable state
+      }
+      if (stopped) {
+        return;
+      }
+      this._setAgentReachable(ok);
+      this._setStatus(ok ? "live" : "screen unavailable");
+      this._setScreenMessage(ok ? "" : "Screen snapshot unavailable");
+      // _setAgentReachable may have re-rendered and started a new loop.
+      if (!stopped) {
+        this._refreshTimer = window.setTimeout(refresh, ok ? 350 : 1500);
+      }
     };
 
     this._stopRefresh = () => {
       stopped = true;
+      URL.revokeObjectURL(image.src);
       if (this._refreshTimer) {
         window.clearTimeout(this._refreshTimer);
         this._refreshTimer = undefined;
@@ -744,13 +747,9 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
     }
     this._setStatus("sending");
     try {
-      const response = await fetch(`${this._selected.input_url}/${action}`, {
+      const response = await this._hass.fetchWithAuth(`${this._selected.input_url}/${action}`, {
         method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-NanoKVM-Panel-Token": this._selected.panel_token,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
@@ -798,38 +797,12 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       .replace(/'/g, "&#039;");
   }
 
-  _agentReachabilityKey(selected) {
-    return `nanokvmDeskAgentReachable:${selected.entry_id}`;
-  }
-
-  _agentReachable(selected) {
-    if (!selected) {
-      return false;
-    }
-
-    const cached = localStorage.getItem(this._agentReachabilityKey(selected));
-    if (cached === "1") {
-      return true;
-    }
-    if (cached === "0") {
-      return false;
-    }
-    return Boolean(selected.agent_installed);
-  }
-
   _setAgentReachable(reachable) {
-    if (!this._selected) {
+    if (!this._selected || this._selected.agent_installed === reachable) {
       return;
     }
-
-    const selected = this._selected;
-    const previous = this._agentReachable(selected);
-    localStorage.setItem(this._agentReachabilityKey(selected), reachable ? "1" : "0");
-    selected.agent_installed = reachable;
-
-    if (previous !== reachable) {
-      this._render();
-    }
+    this._selected.agent_installed = reachable;
+    this._render();
   }
 }
 
