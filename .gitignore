@@ -9,7 +9,6 @@ __pycache__/
 
 .pytest_cache/
 .ruff_cache/
-.mypy_cache/
 
 build/
 dist/
@@ -22,6 +21,4 @@ dist/
 snapshots/
 
 .vscode/
-mypy.ini
-requirements-dev.txt
-pyproject.toml
+!custom_components/*/brand/*.png

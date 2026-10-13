@@ -9,8 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .agent_client import ScreenMetadata
-from .const import DOMAIN
+from .const import DATA_COORDINATORS, DOMAIN
 from .entity import NanoKVMProDeskScreenEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,7 +21,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Desk screen camera."""
-    coordinator = hass.data[DOMAIN]["coordinators"][entry.entry_id]
+    coordinator = hass.data[DOMAIN][DATA_COORDINATORS][entry.entry_id]
     async_add_entities([DeskScreenCamera(coordinator)])
 
 
@@ -43,13 +42,8 @@ class DeskScreenCamera(NanoKVMProDeskScreenEntity, Camera):  # pyright: ignore[r
         height: int | None = None,
     ) -> bytes | None:
         """Return one still image from the installed agent."""
-        metadata = (
-            self.coordinator.data.metadata
-            if self.coordinator.data is not None
-            else ScreenMetadata()
-        )
         try:
-            return await self.coordinator.client.async_snapshot_jpeg(metadata)
+            return await self.coordinator.client.async_snapshot_jpeg()
         except Exception as err:
             _LOGGER.debug("Failed to fetch Desk screen snapshot: %s", err)
             return None

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from secrets import token_urlsafe
 
 from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
@@ -11,11 +10,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.loader import async_get_integration
 
-from .agent_client import DeskAgentClient
+from .agent.client import DeskAgentClient
 from .const import (
     CONF_PORT,
     CONF_TOKEN,
+    DATA_COORDINATORS,
     DEFAULT_PORT,
     DOMAIN,
     NAME,
@@ -31,9 +32,7 @@ from .views import (
     DeskScreenResourceView,
 )
 
-DATA_COORDINATORS = "coordinators"
 DATA_HTTP_REGISTERED = "http_registered"
-DATA_PANEL_TOKENS = "panel_tokens"
 DATA_STATIC_REGISTERED = "static_registered"
 
 
@@ -57,7 +56,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await _async_register_panel(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     return True
+
+
+async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload after the agent host, port or token changed."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -66,18 +71,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not unload_ok:
         return False
 
-    domain_data = hass.data.get(DOMAIN, {})
-    coordinators = domain_data.get(DATA_COORDINATORS, {})
-    coordinators.pop(entry.entry_id, None)
-    domain_data.get(DATA_PANEL_TOKENS, {}).pop(entry.entry_id, None)
+    # The panel is left alone here: a reload registers it again with the same
+    # config, and taking it away in between would close the page the user is on.
+    hass.data.get(DOMAIN, {}).get(DATA_COORDINATORS, {}).pop(entry.entry_id, None)
+    return True
 
-    if coordinators:
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Drop the removed entry from the sidebar panel, or the panel with the last one."""
+    # ponytail: a disabled entry stays listed in the panel until restart
+    if hass.data.get(DOMAIN, {}).get(DATA_COORDINATORS):
         await _async_register_panel(hass)
     else:
         frontend.async_remove_panel(hass, PANEL_FRONTEND_URL_PATH, warn_if_unknown=False)
-        domain_data[DATA_COORDINATORS] = coordinators
-
-    return True
 
 
 async def _async_register_panel(hass: HomeAssistant) -> None:
@@ -97,35 +103,23 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         domain_data[DATA_STATIC_REGISTERED] = True
 
     if not domain_data.get(DATA_HTTP_REGISTERED):
-        hass.http.register_view(
-            DeskScreenResourceView(hass, DATA_COORDINATORS, DATA_PANEL_TOKENS)
-        )
-        hass.http.register_view(
-            DeskScreenInputView(hass, DATA_COORDINATORS, DATA_PANEL_TOKENS)
-        )
-        hass.http.register_view(
-            DeskScreenAgentLifecycleView(hass, DATA_COORDINATORS, DATA_PANEL_TOKENS)
-        )
+        hass.http.register_view(DeskScreenResourceView())
+        hass.http.register_view(DeskScreenInputView())
+        hass.http.register_view(DeskScreenAgentLifecycleView())
         domain_data[DATA_HTTP_REGISTERED] = True
 
+    # Only static values go in the panel config: when it changes the frontend
+    # rebuilds the page. The panel reads the agent state from the agent resource.
     entries = []
-    panel_tokens = domain_data.setdefault(DATA_PANEL_TOKENS, {})
     for coordinator in domain_data.get(DATA_COORDINATORS, {}).values():
         entry = coordinator.config_entry
-        panel_token = panel_tokens.setdefault(entry.entry_id, token_urlsafe(24))
         entries.append(
             {
                 "entry_id": entry.entry_id,
                 "title": entry.title,
-                "metadata_url": f"/api/{DOMAIN}/{entry.entry_id}/metadata",
                 "snapshot_url": f"/api/{DOMAIN}/{entry.entry_id}/snapshot.jpg",
                 "input_url": f"/api/{DOMAIN}/{entry.entry_id}/input",
                 "agent_url": f"/api/{DOMAIN}/{entry.entry_id}/agent",
-                "host": entry.data[CONF_HOST],
-                "port": entry.data.get(CONF_PORT, DEFAULT_PORT),
-                "panel_token": panel_token,
-                "agent_configured": bool(entry.data.get(CONF_TOKEN)),
-                "agent_installed": coordinator.last_update_success,
             }
         )
 
@@ -137,6 +131,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         frontend_url_path=PANEL_FRONTEND_URL_PATH,
         config={
             "entries": entries,
+            "version": str((await async_get_integration(hass, DOMAIN)).version),
             "_panel_custom": {
                 "name": PANEL_COMPONENT_NAME,
                 "js_url": PANEL_STATIC_URL,
