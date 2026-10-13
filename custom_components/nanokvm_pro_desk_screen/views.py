@@ -110,7 +110,7 @@ class DeskScreenInputView(HomeAssistantView):
     @require_admin
     @RequestDataValidator(vol.Schema({}, extra=vol.ALLOW_EXTRA))
     async def post(
-        self, request: web.Request, entry_id: str, action: str, data: dict[str, Any]
+        self, request: web.Request, data: dict[str, Any], entry_id: str, action: str
     ) -> web.Response:
         """Handle proxied input requests."""
         hass = request.app[KEY_HASS]
@@ -133,7 +133,7 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
     @require_admin
     @RequestDataValidator(LIFECYCLE_SCHEMA)
     async def post(
-        self, request: web.Request, entry_id: str, action: str, data: dict[str, Any]
+        self, request: web.Request, data: dict[str, Any], entry_id: str, action: str
     ) -> web.Response:
         """Handle agent lifecycle requests from the admin panel."""
         hass = request.app[KEY_HASS]
