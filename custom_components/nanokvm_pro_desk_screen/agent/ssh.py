@@ -20,7 +20,6 @@ class ConnectionConfig:
     password: str | None = field(default=None, repr=False)
     port: int = 22
     timeout: float = 10.0
-    strict_host_key: bool = False
     host_key_fingerprint: str | None = None
 
 
@@ -86,17 +85,11 @@ class SSHClient:
 
     def connect(self) -> None:
         client = paramiko.SSHClient()
-        if self.config.host_key_fingerprint:
-            # No known_hosts loaded, so every connection goes through the pin.
-            client.set_missing_host_key_policy(
-                _PinnedHostKey(self.config.host_key_fingerprint)
-            )
-        else:
-            client.load_system_host_keys()
-            if not self.config.strict_host_key:
-                client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-        use_keys = self.config.password is None
+        # No known_hosts are loaded, so every connection goes through the pin;
+        # without a trusted fingerprint nothing matches and the login is refused.
+        client.set_missing_host_key_policy(
+            _PinnedHostKey(self.config.host_key_fingerprint or "")
+        )
         client.connect(
             hostname=self.config.host,
             port=self.config.port,
@@ -105,8 +98,8 @@ class SSHClient:
             timeout=self.config.timeout,
             banner_timeout=self.config.timeout,
             auth_timeout=self.config.timeout,
-            look_for_keys=use_keys,
-            allow_agent=use_keys,
+            look_for_keys=False,
+            allow_agent=False,
         )
         self._client = client
 
