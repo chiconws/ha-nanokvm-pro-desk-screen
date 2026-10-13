@@ -16,6 +16,7 @@ from .agent.client import DeskAgentClient
 from .const import (
     CONF_PORT,
     CONF_TOKEN,
+    DATA_COORDINATORS,
     DEFAULT_PORT,
     DOMAIN,
     NAME,
@@ -31,7 +32,6 @@ from .views import (
     DeskScreenResourceView,
 )
 
-DATA_COORDINATORS = "coordinators"
 DATA_HTTP_REGISTERED = "http_registered"
 DATA_STATIC_REGISTERED = "static_registered"
 
@@ -103,9 +103,9 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         domain_data[DATA_STATIC_REGISTERED] = True
 
     if not domain_data.get(DATA_HTTP_REGISTERED):
-        hass.http.register_view(DeskScreenResourceView(hass, DATA_COORDINATORS))
-        hass.http.register_view(DeskScreenInputView(hass, DATA_COORDINATORS))
-        hass.http.register_view(DeskScreenAgentLifecycleView(hass, DATA_COORDINATORS))
+        hass.http.register_view(DeskScreenResourceView())
+        hass.http.register_view(DeskScreenInputView())
+        hass.http.register_view(DeskScreenAgentLifecycleView())
         domain_data[DATA_HTTP_REGISTERED] = True
 
     # Only static values go in the panel config: when it changes the frontend

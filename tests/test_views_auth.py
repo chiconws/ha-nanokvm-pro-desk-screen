@@ -23,7 +23,7 @@ VIEWS = [
 @pytest.mark.parametrize(("view_cls", "method"), VIEWS)
 def test_views_reject_non_admin_users(view_cls: type, method: str) -> None:
     assert view_cls.requires_auth is True
-    view = view_cls(SimpleNamespace(data={}), "coordinators")
+    view = view_cls()
     request = {KEY_HASS_USER: SimpleNamespace(is_admin=False)}
 
     with pytest.raises(Unauthorized):

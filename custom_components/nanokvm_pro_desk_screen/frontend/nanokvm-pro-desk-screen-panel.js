@@ -5,7 +5,6 @@ const HOST_KEY_COMMAND = "for f in /etc/ssh/ssh_host_*_key.pub; do ssh-keygen -l
 
 const STRINGS = {
   en: {
-    title: "NanoKVM Pro Desk Screen",
     manage_agent: "Manage agent",
     setup_agent: "Set up agent",
     update_agent: "Update agent",
@@ -21,8 +20,6 @@ const STRINGS = {
     callout_outdated_title: "Agent update available",
     callout_outdated_text:
       "The agent on the Desk is older than this integration. Update it to get the latest fixes.",
-    badge_reachable: "agent reachable",
-    badge_unreachable: "agent not reachable",
     screen_alt: "NanoKVM Pro Desk screen",
     loading: "loading",
     loading_screen: "Loading screen...",
@@ -66,7 +63,7 @@ const STRINGS = {
     uninstall: "Uninstall",
     running: "Running...",
     failed: "Failed: {error}",
-    done_install: "Agent installed via {manager}. Token saved in Home Assistant.",
+    done_install: "Agent installed. Token saved in Home Assistant.",
     done_uninstall: "Agent uninstalled.",
     uninstall_failed: "Uninstall left files on the Desk: {error}",
     confirm_uninstall_title: "Uninstall the agent?",
@@ -99,8 +96,6 @@ const STRINGS = {
     callout_outdated_title: "Atualização do agente disponível",
     callout_outdated_text:
       "O agente no Desk é mais antigo que esta integração. Atualize para receber as correções mais recentes.",
-    badge_reachable: "agente acessível",
-    badge_unreachable: "agente inacessível",
     screen_alt: "Tela do NanoKVM Pro Desk",
     loading: "carregando",
     loading_screen: "Carregando a tela...",
@@ -145,7 +140,7 @@ const STRINGS = {
     uninstall: "Desinstalar",
     running: "Executando...",
     failed: "Falhou: {error}",
-    done_install: "Agente instalado via {manager}. Token salvo no Home Assistant.",
+    done_install: "Agente instalado. Token salvo no Home Assistant.",
     done_uninstall: "Agente desinstalado.",
     uninstall_failed: "A desinstalação deixou arquivos no Desk: {error}",
     confirm_uninstall_title: "Desinstalar o agente?",
@@ -1046,8 +1041,6 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       ssh_password: this.shadowRoot.getElementById("agent-ssh-password").value,
       ssh_port: Number(this.shadowRoot.getElementById("agent-ssh-port").value || 22),
       agent_port: Number(this.shadowRoot.getElementById("agent-port").value || 8765),
-      bind: "0.0.0.0",
-      fps: 12,
     };
   }
 
@@ -1101,7 +1094,7 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       } else if (action === "uninstall") {
         this._setAgentMessage(this._t("done_uninstall"));
       } else {
-        this._setAgentMessage(this._t("done_install", { manager: data.service_manager }));
+        this._setAgentMessage(this._t("done_install"));
       }
     } catch (err) {
       this._setAgentMessage(this._t("failed", { error: err.message }));

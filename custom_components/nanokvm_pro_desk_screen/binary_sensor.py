@@ -8,7 +8,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DATA_COORDINATORS, DOMAIN
 from .coordinator import DeskScreenDataUpdateCoordinator
 from .entity import NanoKVMProDeskScreenEntity
 
@@ -19,7 +19,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Desk screen binary sensors."""
-    coordinator = hass.data[DOMAIN]["coordinators"][entry.entry_id]
+    coordinator = hass.data[DOMAIN][DATA_COORDINATORS][entry.entry_id]
     async_add_entities([DeskAgentInstalledBinarySensor(coordinator)])
 
 

@@ -29,7 +29,7 @@ The camera and sidebar page expect the optional Desk agent to be installed on
 the NanoKVM Pro Desk. Read [SECURITY.md](SECURITY.md) before installing it.
 
 The short version: the agent runs as root because it needs `/dev/fb0` and
-`/dev/input/event*`, uses bearer-token auth for APIs, and should only be exposed
+`/dev/input/event*`, protects its API with a token, and should only be exposed
 on a trusted LAN or VPN.
 
 ## Install Through HACS
@@ -75,11 +75,6 @@ the Desk's SSH host key fingerprint and asks you to confirm it. The Desk agent
 token is stored in the Home Assistant config entry and is not exposed to the
 browser.
 
-The installed agent still serves its own standalone viewer at the printed
-`http://<desk-ip>:8765/#token=...` URL. That standalone URL is useful outside
-Home Assistant, but it is not required for the Home Assistant sidebar page. The
-sidebar installer intentionally does not display that token-bearing URL.
-
 ## Agent Lifecycle
 
 Use the sidebar agent dialog for install/update, token reset and uninstall.
@@ -87,37 +82,30 @@ SSH is only required for these actions. Normal runtime (camera and sidebar
 controls) does not use SSH once the agent is installed.
 
 The agent installs under `/userapp/nanokvm-desk-agent`, runs as root, and
-registers autostart with systemd when available or `/etc/init.d` otherwise.
+starts with systemd, which the Desk must have.
 The installed files and their permissions are listed in
 [SECURITY.md](SECURITY.md#what-gets-installed).
 
 ## Agent HTTP Endpoints
 
-Agent API endpoints require `Authorization: Bearer <token>` or
-`X-NanoKVM-Desk-Token: <token>`.
+Every endpoint requires the header `X-NanoKVM-Desk-Token: <token>`.
 
 | Endpoint | Description |
 | --- | --- |
-| `/` | Standalone browser viewer |
-| `/api/health` | Agent health |
-| `/api/probe` | Capability report |
-| `/api/screen/metadata` | RGB565 screen metadata |
-| `/api/screen/frame` | One raw RGB565 frame |
-| `/api/screen/raw` | Raw RGB565 frame stream |
-| `/api/input/tap` | Touch tap |
-| `/api/input/swipe` | Touch swipe |
-| `/api/input/knob/rotate` | Rotate the Desk knob left or right |
-| `/api/input/knob/click` | Click or long-press the Desk knob |
+| `GET /api/health` | Liveness and the hash of the agent's own source |
+| `GET /api/screen/frame` | One raw RGB565 frame, 172x320 |
+| `POST /api/input/tap` | Touch tap |
+| `POST /api/input/swipe` | Touch swipe |
+| `POST /api/input/knob/rotate` | Rotate the Desk knob left or right |
+| `POST /api/input/knob/click` | Click or long-press the Desk knob |
 
 ## Safety Notes
 
 - Agent install/update/uninstall uses SSH only for lifecycle management.
-- Agent runtime uses HTTP from the device to Home Assistant or a trusted
-  browser; it does not require SSH.
+- At runtime Home Assistant talks to the agent over HTTP; no SSH is involved.
 - Agent APIs require a token, but HTTP is not encrypted. Do not expose it
   directly to the internet or an untrusted network.
 - Screen mirroring reads from `/dev/fb0`.
 - Controls write transient events to existing `/dev/input` devices.
 - The project does not write to `/dev/uinput` or NanoKVM config.
-- Reset the agent token from the sidebar agent dialog if the URL is shared
-  with anyone who should no longer have access.
+- Reset the agent token from the sidebar agent dialog if it may have leaked.

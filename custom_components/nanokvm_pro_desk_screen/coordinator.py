@@ -10,13 +10,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .agent.client import DeskAgentClient, ScreenMetadata
+from .agent.client import DeskAgentClient
 from .const import DEFAULT_SCAN_INTERVAL_SECONDS, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class DeskScreenDataUpdateCoordinator(DataUpdateCoordinator[ScreenMetadata]):
+class DeskScreenDataUpdateCoordinator(DataUpdateCoordinator[str]):
     """Poll the installed NanoKVM Pro Desk screen agent."""
 
     config_entry: ConfigEntry
@@ -37,9 +37,9 @@ class DeskScreenDataUpdateCoordinator(DataUpdateCoordinator[ScreenMetadata]):
         )
         self.client = client
 
-    async def _async_update_data(self) -> ScreenMetadata:
-        """Fetch the screen metadata; this doubles as the agent reachability check."""
+    async def _async_update_data(self) -> str:
+        """Fetch the agent's source hash; this doubles as the reachability check."""
         try:
-            return await self.client.async_metadata()
+            return await self.client.async_agent_hash()
         except (TimeoutError, aiohttp.ClientError) as err:
             raise UpdateFailed(f"Desk screen agent unavailable: {err}") from err
