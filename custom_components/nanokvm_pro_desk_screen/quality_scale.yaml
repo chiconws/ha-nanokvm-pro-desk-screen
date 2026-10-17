@@ -41,6 +41,4 @@ rules:
   reauthentication-flow:
     status: exempt
     comment: The agent token is provisioned by the installer, never typed by the user.
-  test-coverage:
-    status: todo
-    comment: HA-side modules are covered; the SSH installer and the on-device agent runtime are not yet.
+  test-coverage: done

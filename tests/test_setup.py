@@ -8,33 +8,15 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.setup import async_setup_component
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.nanokvm_pro_desk_screen.agent.runtime import PHYSICAL_HEIGHT, PHYSICAL_WIDTH
-from custom_components.nanokvm_pro_desk_screen.const import CONF_PORT, CONF_TOKEN, DOMAIN
+from custom_components.nanokvm_pro_desk_screen.const import CONF_TOKEN, DOMAIN
 from custom_components.nanokvm_pro_desk_screen.diagnostics import async_get_config_entry_diagnostics
 
 AGENT = "http://desk.local:8765"
 
 
-@pytest.fixture(autouse=True)
-async def http(hass: HomeAssistant) -> None:
-    """Real http server; frontend marked loaded because hass_frontend is not installed."""
-    assert await async_setup_component(hass, "http", {})
-    hass.config.components.add("frontend")
-
-
-@pytest.fixture
-def entry(hass: HomeAssistant) -> MockConfigEntry:
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        unique_id="desk.local:8765",
-        title="Desk",
-        data={CONF_HOST: "desk.local", CONF_PORT: 8765, CONF_TOKEN: "secret-token"},
-    )
-    entry.add_to_hass(hass)
-    return entry
+pytestmark = pytest.mark.usefixtures("http")
 
 
 async def test_setup_with_agent_and_unload(hass: HomeAssistant, aioclient_mock, entry) -> None:

@@ -45,4 +45,3 @@ Deploy to ha-test: VS Code tasks in `.vscode/`.
 
 - `test-before-setup` / `test-before-configure` exempt: the agent does not exist until the panel installs it.
 - `reauthentication-flow` exempt: the token is machine-provisioned.
-- Coverage floor 60%: the SSH installer and the on-device runtime are only partly tested (quality_scale `test-coverage: todo`).
