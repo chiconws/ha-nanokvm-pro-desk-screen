@@ -38,6 +38,9 @@ from custom_components.nanokvm_pro_desk_screen.agent.runtime import (
     write_touch_tap,
 )
 
+# The agent is a standalone HTTP server; these tests talk to it over a real local socket.
+pytestmark = pytest.mark.usefixtures("socket_enabled")
+
 TOKEN = "secret-token"
 
 
