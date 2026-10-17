@@ -1,9 +1,24 @@
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+# Like HA core: long lines are the formatter's job, not a lint failure.
+ignore = ["E501"]
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
 testpaths = ["tests"]
+addopts = "--strict-config --strict-markers"
+
+[tool.coverage.run]
+branch = true
+source = ["custom_components.nanokvm_pro_desk_screen"]
+
+[tool.coverage.report]
+# ratchet upwards only (STANDARD.md §4)
+fail_under = 45
+show_missing = true
+skip_empty = true
