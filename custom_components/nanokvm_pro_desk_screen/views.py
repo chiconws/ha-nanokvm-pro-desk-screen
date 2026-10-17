@@ -5,18 +5,11 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import aiohttp
 import paramiko
-
-if TYPE_CHECKING:
-    import probatio as vol
-else:
-    try:  # Home Assistant 2026.10+ validates with probatio, a drop-in for voluptuous
-        import probatio as vol
-    except ImportError:  # pragma: no cover - older Home Assistant
-        import voluptuous as vol
+import probatio as vol
 from aiohttp import web
 from homeassistant.components.http import KEY_HASS, require_admin
 from homeassistant.components.http.data_validator import RequestDataValidator
