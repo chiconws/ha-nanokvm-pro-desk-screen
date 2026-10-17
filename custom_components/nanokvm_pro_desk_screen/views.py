@@ -9,7 +9,7 @@ from typing import Any
 
 import aiohttp
 import paramiko
-import voluptuous as vol
+import probatio
 from aiohttp import web
 from homeassistant.components.http import KEY_HASS, require_admin
 from homeassistant.components.http.data_validator import RequestDataValidator
@@ -32,7 +32,6 @@ from .const import (
     CONF_PORT,
     CONF_SSH_HOST_KEY,
     CONF_TOKEN,
-    DATA_COORDINATORS,
     DEFAULT_PORT,
     DOMAIN,
 )
@@ -46,18 +45,18 @@ INPUT_PATHS = {
     "knob_click": "/api/input/knob/click",
 }
 
-PORT = vol.All(vol.Coerce(int), vol.Range(min=1, max=65535))
-LIFECYCLE_SCHEMA = vol.Schema(
+PORT = probatio.All(probatio.Coerce(int), probatio.Range(min=1, max=65535))
+LIFECYCLE_SCHEMA = probatio.Schema(
     {
-        vol.Optional("ssh_host", default=""): vol.All(str, vol.Strip),
-        vol.Optional("ssh_user", default="root"): vol.All(str, vol.Strip, vol.Length(min=1)),
-        vol.Optional("ssh_password", default=""): str,
-        vol.Optional("ssh_port", default=22): PORT,
-        vol.Optional("agent_port"): PORT,
-        vol.Optional("ssh_host_key", default=""): str,
-        vol.Optional("reset_token", default=False): bool,
+        probatio.Optional("ssh_host", default=""): probatio.All(str, probatio.Strip),
+        probatio.Optional("ssh_user", default="root"): probatio.All(str, probatio.Strip, probatio.Length(min=1)),
+        probatio.Optional("ssh_password", default=""): str,
+        probatio.Optional("ssh_port", default=22): PORT,
+        probatio.Optional("agent_port"): PORT,
+        probatio.Optional("ssh_host_key", default=""): str,
+        probatio.Optional("reset_token", default=False): bool,
     },
-    extra=vol.REMOVE_EXTRA,
+    extra=probatio.REMOVE_EXTRA,
 )
 
 
@@ -108,7 +107,7 @@ class DeskScreenInputView(HomeAssistantView):
     name = f"api:{DOMAIN}:input"
 
     @require_admin
-    @RequestDataValidator(vol.Schema({}, extra=vol.ALLOW_EXTRA))
+    @RequestDataValidator(probatio.Schema({}, extra=probatio.ALLOW_EXTRA))
     async def post(
         self, request: web.Request, data: dict[str, Any], entry_id: str, action: str
     ) -> web.Response:
@@ -183,7 +182,7 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
             changed = _save_entry(
                 hass, entry, host=connection.host, port=port, token=token, **trusted
             )
-            coordinator = hass.data.get(DOMAIN, {}).get(DATA_COORDINATORS, {}).get(entry_id)
+            coordinator = getattr(entry, "runtime_data", None)
             if not changed and coordinator is not None:
                 # No reload follows, so let the entities see the restarted agent.
                 hass.async_create_task(coordinator.async_request_refresh())
