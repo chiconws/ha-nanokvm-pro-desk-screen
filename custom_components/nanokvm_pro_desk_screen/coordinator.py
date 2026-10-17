@@ -15,16 +15,18 @@ from .const import DEFAULT_SCAN_INTERVAL_SECONDS, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+type DeskScreenConfigEntry = ConfigEntry[DeskScreenDataUpdateCoordinator]
+
 
 class DeskScreenDataUpdateCoordinator(DataUpdateCoordinator[str]):
     """Poll the installed NanoKVM Pro Desk screen agent."""
 
-    config_entry: ConfigEntry
+    config_entry: DeskScreenConfigEntry
 
     def __init__(
         self,
         hass: HomeAssistant,
-        config_entry: ConfigEntry,
+        config_entry: DeskScreenConfigEntry,
         client: DeskAgentClient,
     ) -> None:
         """Initialize the coordinator."""

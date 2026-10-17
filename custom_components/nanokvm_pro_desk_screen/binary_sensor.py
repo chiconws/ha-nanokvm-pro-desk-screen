@@ -3,23 +3,23 @@
 from __future__ import annotations
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DATA_COORDINATORS, DOMAIN
-from .coordinator import DeskScreenDataUpdateCoordinator
+from .coordinator import DeskScreenConfigEntry, DeskScreenDataUpdateCoordinator
 from .entity import NanoKVMProDeskScreenEntity
+
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: DeskScreenConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Desk screen binary sensors."""
-    coordinator = hass.data[DOMAIN][DATA_COORDINATORS][entry.entry_id]
+    coordinator = entry.runtime_data
     async_add_entities([DeskAgentInstalledBinarySensor(coordinator)])
 
 

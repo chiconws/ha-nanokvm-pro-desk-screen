@@ -1,0 +1,46 @@
+# Target: Silver (ha-standards).
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: No custom actions; the panel talks to admin-only HTTP views.
+  appropriate-polling: done
+  brands: done
+  common-modules: done
+  config-flow-test-coverage: done
+  config-flow: done
+  dependency-transparency: done
+  docs-actions:
+    status: exempt
+    comment: No custom actions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-event-setup: done
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure:
+    status: exempt
+    comment: The agent is installed from the panel after setup, so there is nothing to reach yet.
+  test-before-setup:
+    status: exempt
+    comment: Setup must succeed before the agent exists; "Agent installed" reports reachability.
+  unique-config-entry: done
+  # Silver
+  action-exceptions:
+    status: exempt
+    comment: No custom actions.
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow:
+    status: exempt
+    comment: The agent token is provisioned by the installer, never typed by the user.
+  test-coverage:
+    status: todo
+    comment: HA-side modules are covered; the SSH installer and the on-device agent runtime are not yet.

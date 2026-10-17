@@ -5,23 +5,25 @@ from __future__ import annotations
 import logging
 
 from homeassistant.components.camera import Camera
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DATA_COORDINATORS, DOMAIN
+from .coordinator import DeskScreenConfigEntry, DeskScreenDataUpdateCoordinator
 from .entity import NanoKVMProDeskScreenEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 
+PARALLEL_UPDATES = 0
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: DeskScreenConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Desk screen camera."""
-    coordinator = hass.data[DOMAIN][DATA_COORDINATORS][entry.entry_id]
+    coordinator = entry.runtime_data
     async_add_entities([DeskScreenCamera(coordinator)])
 
 
@@ -31,7 +33,7 @@ class DeskScreenCamera(NanoKVMProDeskScreenEntity, Camera):  # pyright: ignore[r
     _attr_translation_key = "screen"
     _attr_content_type = "image/jpeg"
 
-    def __init__(self, coordinator) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, coordinator: DeskScreenDataUpdateCoordinator) -> None:
         """Initialize the camera."""
         NanoKVMProDeskScreenEntity.__init__(self, coordinator, "screen_camera")
         Camera.__init__(self)
