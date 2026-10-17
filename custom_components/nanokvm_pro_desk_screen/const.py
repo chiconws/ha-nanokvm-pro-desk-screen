@@ -5,7 +5,6 @@ NAME = "NanoKVM Pro Desk Screen"
 
 CONF_TOKEN = "token"
 
-DATA_COORDINATORS = "coordinators"
 CONF_PORT = "port"
 CONF_SSH_HOST_KEY = "ssh_host_key"
 

@@ -32,7 +32,6 @@ from .const import (
     CONF_PORT,
     CONF_SSH_HOST_KEY,
     CONF_TOKEN,
-    DATA_COORDINATORS,
     DEFAULT_PORT,
     DOMAIN,
 )
@@ -183,7 +182,7 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
             changed = _save_entry(
                 hass, entry, host=connection.host, port=port, token=token, **trusted
             )
-            coordinator = hass.data.get(DOMAIN, {}).get(DATA_COORDINATORS, {}).get(entry_id)
+            coordinator = getattr(entry, "runtime_data", None)
             if not changed and coordinator is not None:
                 # No reload follows, so let the entities see the restarted agent.
                 hass.async_create_task(coordinator.async_request_refresh())

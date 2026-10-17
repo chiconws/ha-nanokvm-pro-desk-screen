@@ -1,27 +1,66 @@
 # NanoKVM Pro Desk Screen
 
-Home Assistant custom integration for the NanoKVM Pro Desk front-panel screen.
+[![HACS][badge-hacs]][link-hacs]
+[![GitHub Release][badge-release]][link-release]
+[![Home Assistant][badge-ha]][link-ha]
+[![GitHub Commit Activity][badge-commit-activity]][link-commits]
+[![HACS Validation][badge-hacs-validation]][link-hacs-validation]
+[![Hassfest][badge-hassfest]][link-hassfest]
+[![Tests][badge-tests]][link-tests]
+[![License][badge-license]][link-license]
 
-This integration is separate from the main NanoKVM integration because the Desk
-screen needs an optional root agent on the Desk device. The code lives directly
-in this repository under `custom_components/nanokvm_pro_desk_screen`; there is
-no separate runtime Python library.
+See and control the front-panel screen of a Sipeed **NanoKVM Pro Desk** from Home Assistant: a camera entity, an agent status sensor and an admin sidebar page with touch and knob controls.
 
-## Scope
+## Features
 
-Implemented:
+- Read-only camera with a still image of the Desk screen
+- Diagnostic binary sensor showing whether the on-device agent answers
+- Admin-only sidebar page with live snapshots, touch, swipe and knob controls
+- Agent manager in the sidebar: install, update, reset the token or uninstall over SSH
 
-- Read-only camera entity for the Desk screen.
-- Diagnostic binary sensor showing whether the Desk agent is reachable.
-- Admin-only Home Assistant sidebar page that proxies screen snapshots and
-  controls through Home Assistant auth.
-- Admin-only sidebar agent manager that shows the agent state and installs,
-  updates, resets the token of, or uninstalls the optional Desk agent over SSH.
+## Requirements
 
-Deferred:
+- Home Assistant 2026.10 or newer
+- A Sipeed NanoKVM Pro Desk on a trusted LAN or VPN, with SSH enabled (only for agent install/update/uninstall)
+- The optional root agent on the Desk; read [SECURITY.md](SECURITY.md) first
 
-- Installing the agent from a Home Assistant config flow.
-- A native Lovelace dashboard card.
+## Installation
+
+### HACS (recommended)
+
+[![Open your Home Assistant instance and open this repository in HACS.][badge-my-hacs]][link-my-hacs]
+
+1. Click the button above, or open **HACS → ⋮ → Custom repositories** and add
+   `https://github.com/chiconws/ha-nanokvm-pro-desk-screen` with type **Integration**.
+2. Search for **NanoKVM Pro Desk Screen** in HACS and click **Download**.
+3. Restart Home Assistant.
+
+### Manual
+
+1. Download the latest [release][link-release].
+2. Copy `custom_components/nanokvm_pro_desk_screen` into the `custom_components` folder of your
+   Home Assistant configuration.
+3. Restart Home Assistant.
+
+## Configuration
+
+[![Open your Home Assistant instance and start setting up NanoKVM Pro Desk Screen.][badge-my-config]][link-my-config]
+
+1. Go to **Settings → Devices & services → Add integration**.
+2. Search for **NanoKVM Pro Desk Screen** and follow the setup steps.
+
+| Field | Description |
+| --- | --- |
+| Host | Hostname or IP of the Desk, without `http://` or a path |
+
+After setup, open the **NanoKVM Pro Desk Screen** sidebar page and use the agent button to install the agent. Its token is generated and stored in the config entry; you never type it.
+
+## Entities
+
+| Entity | Platform | Description |
+| --- | --- | --- |
+| Screen | `camera` | Still image of the Desk screen |
+| Agent installed | `binary_sensor` | Diagnostic: the agent answers with its token |
 
 ## Agent Requirement
 
@@ -31,30 +70,6 @@ the NanoKVM Pro Desk. Read [SECURITY.md](SECURITY.md) before installing it.
 The short version: the agent runs as root because it needs `/dev/fb0` and
 `/dev/input/event*`, protects its API with a token, and should only be exposed
 on a trusted LAN or VPN.
-
-## Install Through HACS
-
-1. Open HACS in Home Assistant.
-2. Go to `Integrations` and click the menu (`⋮`) in the top-right corner.
-3. Select `Custom repositories`.
-4. Add this repository URL:
-   - `https://github.com/chiconws/ha-nanokvm-pro-desk-screen`
-5. Select category `Integration` and save.
-6. Find `NanoKVM Pro Desk Screen` in HACS and click `Download`.
-7. Restart Home Assistant.
-8. Go to `Settings` -> `Devices & services` -> `Add integration`.
-9. Add `NanoKVM Pro Desk Screen` and enter your Desk host/IP.
-
-After setup, open the `NanoKVM Pro Desk Screen` sidebar page and use the
-agent button to install, update or uninstall the optional on-device agent.
-The generated agent token is stored in the Home Assistant config entry.
-
-## Home Assistant Entities
-
-| Entity | Purpose |
-| --- | --- |
-| Camera: Screen | Read-only still image from the Desk screen |
-| Binary sensor: Agent installed | Diagnostic reachability state for the Desk agent |
 
 ## Home Assistant Sidebar Page
 
@@ -99,7 +114,24 @@ Every endpoint requires the header `X-NanoKVM-Desk-Token: <token>`.
 | `POST /api/input/knob/rotate` | Rotate the Desk knob left or right |
 | `POST /api/input/knob/click` | Click or long-press the Desk knob |
 
-## Safety Notes
+## Troubleshooting
+
+- **Diagnostics:** Settings → Devices & services → NanoKVM Pro Desk Screen → ⋮ →
+  **Download diagnostics** (credentials are redacted). Attach the file to bug reports.
+- **Debug logging:**
+
+```yaml
+logger:
+  logs:
+    custom_components.nanokvm_pro_desk_screen: debug
+```
+
+## Known limitations
+
+- The camera is a still image, not a stream; the sidebar refreshes it.
+- The agent speaks plain HTTP with a token; keep it off untrusted networks.
+
+### Safety notes
 
 - Agent install/update/uninstall uses SSH only for lifecycle management.
 - At runtime Home Assistant talks to the agent over HTTP; no SSH is involved.
@@ -109,3 +141,39 @@ Every endpoint requires the header `X-NanoKVM-Desk-Token: <token>`.
 - Controls write transient events to existing `/dev/input` devices.
 - The project does not write to `/dev/uinput` or NanoKVM config.
 - Reset the agent token from the sidebar agent dialog if it may have leaked.
+
+## Development
+
+See [AGENTS.md](AGENTS.md) for the code structure. Quick checks:
+
+```bash
+uv venv --python 3.14 .venv && uv pip install -r requirements_test.txt
+python -m ruff check custom_components/nanokvm_pro_desk_screen tests
+python -m pytest
+```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
+
+[badge-hacs]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
+[badge-release]: https://img.shields.io/github/v/release/chiconws/ha-nanokvm-pro-desk-screen
+[badge-ha]: https://img.shields.io/badge/Home%20Assistant-2026.10%2B-41BDF5?logo=home-assistant
+[badge-commit-activity]: https://img.shields.io/github/commit-activity/m/chiconws/ha-nanokvm-pro-desk-screen
+[badge-hacs-validation]: https://github.com/chiconws/ha-nanokvm-pro-desk-screen/actions/workflows/hacs.yaml/badge.svg
+[badge-hassfest]: https://github.com/chiconws/ha-nanokvm-pro-desk-screen/actions/workflows/hassfest.yaml/badge.svg
+[badge-tests]: https://github.com/chiconws/ha-nanokvm-pro-desk-screen/actions/workflows/tests.yaml/badge.svg
+[badge-license]: https://img.shields.io/github/license/chiconws/ha-nanokvm-pro-desk-screen
+[badge-my-hacs]: https://my.home-assistant.io/badges/hacs_repository.svg
+[badge-my-config]: https://my.home-assistant.io/badges/config_flow_start.svg
+
+[link-hacs]: https://hacs.xyz/
+[link-release]: https://github.com/chiconws/ha-nanokvm-pro-desk-screen/releases/latest
+[link-ha]: https://www.home-assistant.io/
+[link-commits]: https://github.com/chiconws/ha-nanokvm-pro-desk-screen/commits/main
+[link-hacs-validation]: https://github.com/chiconws/ha-nanokvm-pro-desk-screen/actions/workflows/hacs.yaml
+[link-hassfest]: https://github.com/chiconws/ha-nanokvm-pro-desk-screen/actions/workflows/hassfest.yaml
+[link-tests]: https://github.com/chiconws/ha-nanokvm-pro-desk-screen/actions/workflows/tests.yaml
+[link-license]: LICENSE
+[link-my-hacs]: https://my.home-assistant.io/redirect/hacs_repository/?owner=chiconws&repository=ha-nanokvm-pro-desk-screen&category=integration
+[link-my-config]: https://my.home-assistant.io/redirect/config_flow_start/?domain=nanokvm_pro_desk_screen

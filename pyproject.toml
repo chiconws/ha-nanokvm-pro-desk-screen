@@ -19,7 +19,7 @@ source = ["custom_components.nanokvm_pro_desk_screen"]
 
 [tool.coverage.report]
 # ratchet upwards only (STANDARD.md §4)
-fail_under = 45
+fail_under = 60
 show_missing = true
 skip_empty = true
 
