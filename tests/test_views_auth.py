@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from homeassistant.components.http import KEY_HASS, KEY_HASS_USER
@@ -21,7 +22,7 @@ VIEWS = [
 
 
 @pytest.mark.parametrize(("view_cls", "method"), VIEWS)
-def test_views_reject_non_admin_users(view_cls: type, method: str) -> None:
+def test_views_reject_non_admin_users(view_cls: Any, method: str) -> None:
     assert view_cls.requires_auth is True
     view = view_cls()
     request = {KEY_HASS_USER: SimpleNamespace(is_admin=False)}

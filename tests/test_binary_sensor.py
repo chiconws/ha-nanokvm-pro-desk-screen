@@ -12,7 +12,7 @@ def test_agent_sensor_is_off_not_unavailable_when_the_agent_is_down() -> None:
         last_update_success=False,
         config_entry=SimpleNamespace(entry_id="entry", title="Desk"),
     )
-    sensor = DeskAgentInstalledBinarySensor(coordinator)  # pyright: ignore[reportArgumentType]
+    sensor = DeskAgentInstalledBinarySensor(coordinator)  # type: ignore[arg-type]
 
     assert sensor.available is True
     assert sensor.is_on is False

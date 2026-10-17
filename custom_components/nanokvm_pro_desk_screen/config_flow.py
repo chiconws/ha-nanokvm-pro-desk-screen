@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
-import voluptuous as vol
+if TYPE_CHECKING:
+    import probatio as vol
+else:
+    try:  # Home Assistant 2026.10+ validates with probatio, a drop-in for voluptuous
+        import probatio as vol
+    except ImportError:  # pragma: no cover - older Home Assistant
+        import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST
 
