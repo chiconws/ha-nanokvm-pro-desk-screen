@@ -1,7 +1,5 @@
 """NanoKVM Pro Desk Screen integration."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 from homeassistant.components import frontend
@@ -58,7 +56,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: DeskScreenConfigEntry) -
     return True
 
 
-async def _async_reload_entry(hass: HomeAssistant, entry: DeskScreenConfigEntry) -> None:
+async def _async_reload_entry(
+    hass: HomeAssistant, entry: DeskScreenConfigEntry
+) -> None:
     """Reload after the agent host, port or token changed."""
     await hass.config_entries.async_reload(entry.entry_id)
 
@@ -76,7 +76,9 @@ async def async_remove_entry(hass: HomeAssistant, entry: DeskScreenConfigEntry) 
     if hass.config_entries.async_loaded_entries(DOMAIN):
         await _async_register_panel(hass)
     else:
-        frontend.async_remove_panel(hass, PANEL_FRONTEND_URL_PATH, warn_if_unknown=False)
+        frontend.async_remove_panel(
+            hass, PANEL_FRONTEND_URL_PATH, warn_if_unknown=False
+        )
 
 
 async def _async_register_panel(
@@ -108,17 +110,16 @@ async def _async_register_panel(
     loaded = hass.config_entries.async_loaded_entries(DOMAIN)
     if loading is not None and loading not in loaded:  # still in setup, not LOADED yet
         loaded.append(loading)
-    entries = []
-    for entry in loaded:
-        entries.append(
-            {
-                "entry_id": entry.entry_id,
-                "title": entry.title,
-                "snapshot_url": f"/api/{DOMAIN}/{entry.entry_id}/snapshot.jpg",
-                "input_url": f"/api/{DOMAIN}/{entry.entry_id}/input",
-                "agent_url": f"/api/{DOMAIN}/{entry.entry_id}/agent",
-            }
-        )
+    entries = [
+        {
+            "entry_id": entry.entry_id,
+            "title": entry.title,
+            "snapshot_url": f"/api/{DOMAIN}/{entry.entry_id}/snapshot.jpg",
+            "input_url": f"/api/{DOMAIN}/{entry.entry_id}/input",
+            "agent_url": f"/api/{DOMAIN}/{entry.entry_id}/agent",
+        }
+        for entry in loaded
+    ]
 
     frontend.async_register_built_in_panel(
         hass,

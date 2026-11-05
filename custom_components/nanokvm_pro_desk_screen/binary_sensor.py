@@ -1,8 +1,11 @@
 """Binary sensors for NanoKVM Pro Desk Screen."""
 
-from __future__ import annotations
+from typing import override
 
-from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+)
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -38,11 +41,13 @@ class DeskAgentInstalledBinarySensor(  # pyright: ignore[reportIncompatibleVaria
         self._attr_is_on = coordinator.last_update_success
 
     @property
+    @override
     def available(self) -> bool:
         """Stay available: an unreachable agent is the off state, not a missing one."""
         return True
 
     @callback
+    @override
     def _handle_coordinator_update(self) -> None:
         """Update cached state from coordinator data."""
         self._attr_is_on = self.coordinator.last_update_success

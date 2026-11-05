@@ -1,4 +1,4 @@
-from __future__ import annotations
+"""Tests for SSH host key pinning."""
 
 from unittest.mock import MagicMock
 
@@ -13,6 +13,7 @@ from custom_components.nanokvm_pro_desk_screen.agent.ssh import (
 
 
 def test_pinned_host_key_accepts_only_the_trusted_key() -> None:
+    """Test pinned host key accepts only the trusted key."""
     trusted = paramiko.ECDSAKey.generate()
     other = paramiko.ECDSAKey.generate()
     policy = _PinnedHostKey(trusted.fingerprint)
@@ -25,7 +26,10 @@ def test_pinned_host_key_accepts_only_the_trusted_key() -> None:
     assert err.value.fingerprint == other.fingerprint
 
 
-def test_probe_host_key_reads_the_key_without_logging_in(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_probe_host_key_reads_the_key_without_logging_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test probe host key reads the key without logging in."""
     key = paramiko.ECDSAKey.generate()
     transport = MagicMock()
     transport.get_remote_server_key.return_value = key
@@ -37,7 +41,10 @@ def test_probe_host_key_reads_the_key_without_logging_in(monkeypatch: pytest.Mon
     transport.auth_password.assert_not_called()
 
 
-def test_ssh_client_connects_pinned_and_runs_commands(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ssh_client_connects_pinned_and_runs_commands(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test ssh client connects pinned and runs commands."""
     paramiko_client = MagicMock()
     stdout = MagicMock()
     stdout.read.return_value = b"out"
@@ -45,8 +52,12 @@ def test_ssh_client_connects_pinned_and_runs_commands(monkeypatch: pytest.Monkey
     stderr = MagicMock()
     stderr.read.return_value = b"err"
     paramiko_client.exec_command.return_value = (MagicMock(), stdout, stderr)
-    monkeypatch.setattr(ssh.paramiko, "SSHClient", MagicMock(return_value=paramiko_client))
-    config = ssh.ConnectionConfig(host="desk", user="root", password="pw", host_key_fingerprint="aa")
+    monkeypatch.setattr(
+        ssh.paramiko, "SSHClient", MagicMock(return_value=paramiko_client)
+    )
+    config = ssh.ConnectionConfig(
+        host="desk", user="root", password="pw", host_key_fingerprint="aa"
+    )
 
     with ssh.SSHClient(config) as client:
         assert client.run("true") == ("out", "err", 3)
@@ -60,6 +71,7 @@ def test_ssh_client_connects_pinned_and_runs_commands(monkeypatch: pytest.Monkey
 
 
 def test_ssh_client_needs_a_connection() -> None:
+    """Test ssh client needs a connection."""
     client = ssh.SSHClient(ssh.ConnectionConfig(host="desk", user="root"))
 
     with pytest.raises(RuntimeError):

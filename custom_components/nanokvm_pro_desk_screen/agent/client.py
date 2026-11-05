@@ -1,7 +1,5 @@
 """HTTP client for the installed NanoKVM Pro Desk screen agent."""
 
-from __future__ import annotations
-
 import asyncio
 from io import BytesIO
 from typing import Any
@@ -46,12 +44,19 @@ class DeskAgentClient:
             response.raise_for_status()
             frame = await response.read()
 
-        return await asyncio.get_running_loop().run_in_executor(None, rgb565_to_jpeg, frame)
+        return await asyncio.get_running_loop().run_in_executor(
+            None, rgb565_to_jpeg, frame
+        )
 
-    async def async_post_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def async_post_json(
+        self, path: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """Post JSON to the Desk agent."""
         async with self.session.post(
-            f"{self.base_url}{path}", headers=self.headers, json=payload, timeout=TIMEOUT
+            f"{self.base_url}{path}",
+            headers=self.headers,
+            json=payload,
+            timeout=TIMEOUT,
         ) as response:
             response.raise_for_status()
             data = await response.json()
@@ -67,5 +72,7 @@ def rgb565_to_jpeg(frame: bytes) -> bytes:
 
 def rgb565_to_image(frame: bytes) -> Image.Image:
     """Decode the portrait RGB565 framebuffer and turn it the way the screen is mounted."""
-    physical = Image.frombytes("RGB", (PHYSICAL_WIDTH, PHYSICAL_HEIGHT), frame, "raw", "BGR;16")
+    physical = Image.frombytes(
+        "RGB", (PHYSICAL_WIDTH, PHYSICAL_HEIGHT), frame, "raw", "BGR;16"
+    )
     return physical.transpose(Image.Transpose.ROTATE_270)

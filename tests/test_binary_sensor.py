@@ -1,4 +1,4 @@
-from __future__ import annotations
+"""Tests for the agent-installed binary sensor."""
 
 from types import SimpleNamespace
 
@@ -8,6 +8,7 @@ from custom_components.nanokvm_pro_desk_screen.binary_sensor import (
 
 
 def test_agent_sensor_is_off_not_unavailable_when_the_agent_is_down() -> None:
+    """Test agent sensor is off not unavailable when the agent is down."""
     coordinator = SimpleNamespace(
         last_update_success=False,
         config_entry=SimpleNamespace(entry_id="entry", title="Desk"),

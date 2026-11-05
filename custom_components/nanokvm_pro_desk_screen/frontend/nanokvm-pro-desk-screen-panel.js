@@ -1,7 +1,9 @@
 const REPO_URL = "https://github.com/chiconws/ha-nanokvm-pro-desk-screen";
 const SECURITY_URL = `${REPO_URL}/blob/main/SECURITY.md`;
-const AGENT_SOURCE_PATH = "custom_components/nanokvm_pro_desk_screen/agent/runtime.py";
-const HOST_KEY_COMMAND = "for f in /etc/ssh/ssh_host_*_key.pub; do ssh-keygen -lf $f; done";
+const AGENT_SOURCE_PATH =
+  "custom_components/nanokvm_pro_desk_screen/agent/runtime.py";
+const HOST_KEY_COMMAND =
+  "for f in /etc/ssh/ssh_host_*_key.pub; do ssh-keygen -lf $f; done";
 
 const STRINGS = {
   en: {
@@ -48,9 +50,12 @@ const STRINGS = {
     sec_link: "Security notes",
     status_checking: "Checking the agent...",
     status_error: "Could not check the agent.",
-    status_not_installed: "Not installed: Home Assistant has no token for this Desk.",
-    status_unreachable: "A token is configured, but the agent does not answer on {host}:{port}.",
-    status_outdated: "Running, but older than this integration. Install / update to refresh it.",
+    status_not_installed:
+      "Not installed: Home Assistant has no token for this Desk.",
+    status_unreachable:
+      "A token is configured, but the agent does not answer on {host}:{port}.",
+    status_outdated:
+      "Running, but older than this integration. Install / update to refresh it.",
     status_ok: "Running and up to date.",
     ssh_password: "SSH password",
     advanced: "Advanced",
@@ -124,8 +129,10 @@ const STRINGS = {
     sec_link: "Notas de segurança",
     status_checking: "Verificando o agente...",
     status_error: "Não foi possível verificar o agente.",
-    status_not_installed: "Não instalado: o Home Assistant não tem token para este Desk.",
-    status_unreachable: "Há um token configurado, mas o agente não responde em {host}:{port}.",
+    status_not_installed:
+      "Não instalado: o Home Assistant não tem token para este Desk.",
+    status_unreachable:
+      "Há um token configurado, mas o agente não responde em {host}:{port}.",
     status_outdated:
       "Rodando, mas mais antigo que esta integração. Use Instalar / atualizar para renová-lo.",
     status_ok: "Rodando e atualizado.",
@@ -202,13 +209,15 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
     }
 
     const currentIndex = Number(this._selectedIndex || 0);
-    const selected = entries[Math.min(currentIndex, Math.max(entries.length - 1, 0))];
+    const selected =
+      entries[Math.min(currentIndex, Math.max(entries.length - 1, 0))];
     if (selected !== this._selected) {
       this._agentStatus = undefined;
     }
     const callout = this._callout();
     const agentButton = this._t(
-      { setup: "setup_agent", outdated: "update_agent" }[callout] || "manage_agent",
+      { setup: "setup_agent", outdated: "update_agent" }[callout] ||
+        "manage_agent",
     );
 
     // Re-rendering replaces the whole DOM; carry what the user typed across it.
@@ -883,7 +892,10 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       screenColumn.style.removeProperty("--screen-width");
       return;
     }
-    screenColumn.style.setProperty("--screen-width", `${Math.round(320 * Number(size))}px`);
+    screenColumn.style.setProperty(
+      "--screen-width",
+      `${Math.round(320 * Number(size))}px`,
+    );
   }
 
   _wireControls() {
@@ -891,9 +903,13 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       return;
     }
 
-    this.shadowRoot.querySelectorAll("button[data-action]").forEach((button) => {
-      button.addEventListener("click", () => this._handleButton(button.dataset.action));
-    });
+    this.shadowRoot
+      .querySelectorAll("button[data-action]")
+      .forEach((button) => {
+        button.addEventListener("click", () =>
+          this._handleButton(button.dataset.action),
+        );
+      });
 
     const sizeSelect = this.shadowRoot.getElementById("screen-size");
     if (sizeSelect) {
@@ -938,44 +954,58 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
   }
 
   _wireAgentDialog(selected) {
-    this.shadowRoot?.querySelectorAll("button[data-open-agent]").forEach((button) => {
-      button.addEventListener("click", () => {
-        this._agentDialogOpen = true;
-        this._agentMessage = "";
-        this._render();
-        this._loadAgentStatus();
+    this.shadowRoot
+      ?.querySelectorAll("button[data-open-agent]")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          this._agentDialogOpen = true;
+          this._agentMessage = "";
+          this._render();
+          this._loadAgentStatus();
+        });
       });
-    });
 
     if (!selected || !this._agentDialogOpen) {
       return;
     }
 
-    this.shadowRoot.getElementById("agent-close")?.addEventListener("click", () => {
-      this._agentConfirm?.resolve(false);
-      this._agentDialogOpen = false;
-      this._agentMessage = "";
-      this._render();
-    });
+    this.shadowRoot
+      .getElementById("agent-close")
+      ?.addEventListener("click", () => {
+        this._agentConfirm?.resolve(false);
+        this._agentDialogOpen = false;
+        this._agentMessage = "";
+        this._render();
+      });
 
-    this.shadowRoot.getElementById("agent-source")?.addEventListener("click", (event) => {
-      event.preventDefault();
-      this._openAgentSource();
-    });
+    this.shadowRoot
+      .getElementById("agent-source")
+      ?.addEventListener("click", (event) => {
+        event.preventDefault();
+        this._openAgentSource();
+      });
 
     // Enter in any field submits the form, which is the install button.
-    this.shadowRoot.getElementById("agent-form")?.addEventListener("submit", (event) => {
-      event.preventDefault();
-      this._handleAgentAction("install");
-    });
-    this.shadowRoot.querySelectorAll("button[type=button][data-agent-action]").forEach((button) => {
-      button.addEventListener("click", () => this._handleAgentAction(button.dataset.agentAction));
-    });
-    this.shadowRoot.querySelectorAll("button[data-confirm]").forEach((button) => {
-      button.addEventListener("click", () =>
-        this._agentConfirm?.resolve(button.dataset.confirm === "yes"),
-      );
-    });
+    this.shadowRoot
+      .getElementById("agent-form")
+      ?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        this._handleAgentAction("install");
+      });
+    this.shadowRoot
+      .querySelectorAll("button[type=button][data-agent-action]")
+      .forEach((button) => {
+        button.addEventListener("click", () =>
+          this._handleAgentAction(button.dataset.agentAction),
+        );
+      });
+    this.shadowRoot
+      .querySelectorAll("button[data-confirm]")
+      .forEach((button) => {
+        button.addEventListener("click", () =>
+          this._agentConfirm?.resolve(button.dataset.confirm === "yes"),
+        );
+      });
   }
 
   // Open the file Home Assistant would upload, as served by this installation.
@@ -983,11 +1013,15 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
     // Opened before the fetch so the browser ties the new tab to the click.
     const tab = window.open("", "_blank");
     try {
-      const response = await this._hass.fetchWithAuth(`${this._selected.agent_url}.py`);
+      const response = await this._hass.fetchWithAuth(
+        `${this._selected.agent_url}.py`,
+      );
       if (!response.ok) {
         throw new Error(response.statusText);
       }
-      const blob = new Blob([await response.text()], { type: "text/plain;charset=utf-8" });
+      const blob = new Blob([await response.text()], {
+        type: "text/plain;charset=utf-8",
+      });
       tab.location.href = URL.createObjectURL(blob);
     } catch (_err) {
       tab?.close();
@@ -1039,8 +1073,12 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       ssh_host: this.shadowRoot.getElementById("agent-ssh-host").value.trim(),
       ssh_user: this.shadowRoot.getElementById("agent-ssh-user").value.trim(),
       ssh_password: this.shadowRoot.getElementById("agent-ssh-password").value,
-      ssh_port: Number(this.shadowRoot.getElementById("agent-ssh-port").value || 22),
-      agent_port: Number(this.shadowRoot.getElementById("agent-port").value || 8765),
+      ssh_port: Number(
+        this.shadowRoot.getElementById("agent-ssh-port").value || 22,
+      ),
+      agent_port: Number(
+        this.shadowRoot.getElementById("agent-port").value || 8765,
+      ),
     };
   }
 
@@ -1057,11 +1095,14 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       let response;
       let data;
       for (;;) {
-        response = await this._hass.fetchWithAuth(`${selected.agent_url}/${action}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+        response = await this._hass.fetchWithAuth(
+          `${selected.agent_url}/${action}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          },
+        );
         data = await this._responseJson(response);
         if (response.status !== 409 || !data.host_key) {
           break;
@@ -1069,7 +1110,9 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
         // The server has not sent the password yet; it wants the host key confirmed.
         const changed = data.reason === "changed";
         const trusted = await this._ask({
-          title: this._t(changed ? "hostkey_changed_title" : "hostkey_new_title"),
+          title: this._t(
+            changed ? "hostkey_changed_title" : "hostkey_new_title",
+          ),
           text: this._t(changed ? "hostkey_changed_text" : "hostkey_new_text", {
             host: body.ssh_host,
           }),
@@ -1086,11 +1129,15 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
         body.ssh_host_key = data.host_key;
       }
       if (!response.ok) {
-        throw new Error(data.message || `${response.status} ${response.statusText}`);
+        throw new Error(
+          data.message || `${response.status} ${response.statusText}`,
+        );
       }
 
       if (action === "uninstall" && !data.ok) {
-        this._setAgentMessage(this._t("uninstall_failed", { error: data.stderr || data.stdout }));
+        this._setAgentMessage(
+          this._t("uninstall_failed", { error: data.stderr || data.stdout }),
+        );
       } else if (action === "uninstall") {
         this._setAgentMessage(this._t("done_uninstall"));
       } else {
@@ -1115,10 +1162,14 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
 
   _setAgentBusy(busy) {
     this._agentBusy = busy;
-    this.shadowRoot?.querySelectorAll("button[data-agent-action]").forEach((button) => {
-      button.disabled = busy;
-    });
-    this.shadowRoot?.getElementById("agent-message")?.classList.toggle("busy", busy);
+    this.shadowRoot
+      ?.querySelectorAll("button[data-agent-action]")
+      .forEach((button) => {
+        button.disabled = busy;
+      });
+    this.shadowRoot
+      ?.getElementById("agent-message")
+      ?.classList.toggle("busy", busy);
   }
 
   _setAgentMessage(message) {
@@ -1147,7 +1198,9 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
       }
       let ok = false;
       try {
-        const response = await this._hass.fetchWithAuth(this._selected.snapshot_url);
+        const response = await this._hass.fetchWithAuth(
+          this._selected.snapshot_url,
+        );
         if (response.ok) {
           const url = URL.createObjectURL(await response.blob());
           URL.revokeObjectURL(image.src);
@@ -1205,11 +1258,14 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
     }
     this._setStatus(this._t("sending"));
     try {
-      const response = await this._hass.fetchWithAuth(`${this._selected.input_url}/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const response = await this._hass.fetchWithAuth(
+        `${this._selected.input_url}/${action}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       if (!response.ok) {
         throw new Error(`${response.status} ${response.statusText}`);
       }
@@ -1225,8 +1281,17 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
     const width = image.naturalWidth || 320;
     const height = image.naturalHeight || 172;
     return {
-      x: Math.max(0, Math.min(width - 1, ((event.clientX - rect.left) * width) / rect.width)),
-      y: Math.max(0, Math.min(height - 1, ((event.clientY - rect.top) * height) / rect.height)),
+      x: Math.max(
+        0,
+        Math.min(width - 1, ((event.clientX - rect.left) * width) / rect.width),
+      ),
+      y: Math.max(
+        0,
+        Math.min(
+          height - 1,
+          ((event.clientY - rect.top) * height) / rect.height,
+        ),
+      ),
     };
   }
 
@@ -1263,4 +1328,7 @@ class NanoKVMProDeskScreenPanel extends HTMLElement {
   }
 }
 
-customElements.define("nanokvm-pro-desk-screen-panel", NanoKVMProDeskScreenPanel);
+customElements.define(
+  "nanokvm-pro-desk-screen-panel",
+  NanoKVMProDeskScreenPanel,
+);

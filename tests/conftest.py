@@ -1,18 +1,21 @@
 """Shared pytest fixtures."""
 
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.nanokvm_pro_desk_screen.const import (
+    CONF_PORT,
+    CONF_TOKEN,
+    DOMAIN,
+)
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
-from custom_components.nanokvm_pro_desk_screen.const import CONF_PORT, CONF_TOKEN, DOMAIN
 
 
 @pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
+def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
     """Let Home Assistant load custom_components/ during tests."""
-    yield
 
 
 @pytest.fixture
@@ -24,6 +27,7 @@ async def http(hass: HomeAssistant) -> None:
 
 @pytest.fixture
 def entry(hass: HomeAssistant) -> MockConfigEntry:
+    """Return a config entry for a Desk."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id="desk.local:8765",

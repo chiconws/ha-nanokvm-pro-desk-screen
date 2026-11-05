@@ -1,11 +1,9 @@
 """Install and manage the on-device NanoKVM Desk agent over SSH."""
 
-from __future__ import annotations
-
 import io
 import json
-import secrets
 from pathlib import Path
+import secrets
 from typing import Any
 
 from .ssh import ConnectionConfig, RemoteCommandError, SSHClient
@@ -46,7 +44,9 @@ UNINSTALL_COMMANDS = [
 ]
 
 
-def install_agent(connection: ConnectionConfig, *, port: int, reset_token: bool = False) -> str:
+def install_agent(
+    connection: ConnectionConfig, *, port: int, reset_token: bool = False
+) -> str:
     """Install or update the agent on the Desk and return its token."""
     with SSHClient(connection) as remote:
         _stdout, _stderr, exit_status = remote.run(
@@ -68,7 +68,7 @@ def install_agent(connection: ConnectionConfig, *, port: int, reset_token: bool 
             f"systemctl daemon-reload && systemctl enable {SERVICE_NAME} "
             f"&& systemctl restart {SERVICE_NAME}",
         )
-    return config["token"]
+    return str(config["token"])
 
 
 def uninstall_agent(connection: ConnectionConfig) -> dict[str, object]:
@@ -94,7 +94,10 @@ def build_agent_config(
 
 
 def read_existing_config(remote: SSHClient) -> dict[str, Any] | None:
-    stdout, _stderr, _exit_status = remote.run(f"cat {AGENT_CONFIG} 2>/dev/null || true")
+    """Return the agent config already on the Desk, or None if absent or unreadable."""
+    stdout, _stderr, _exit_status = remote.run(
+        f"cat {AGENT_CONFIG} 2>/dev/null || true"
+    )
     try:
         parsed = json.loads(stdout)
     except json.JSONDecodeError:
@@ -103,6 +106,7 @@ def read_existing_config(remote: SSHClient) -> dict[str, Any] | None:
 
 
 def run_checked(remote: SSHClient, command: str) -> None:
+    """Run a remote command and raise RemoteCommandError when it fails."""
     stdout, stderr, exit_status = remote.run(command)
     if exit_status != 0:
         message = stderr.strip() or stdout.strip() or command
@@ -110,6 +114,7 @@ def run_checked(remote: SSHClient, command: str) -> None:
 
 
 def upload_text(remote: SSHClient, path: str, content: str, *, mode: str) -> None:
+    """Upload text to a remote path over SFTP and set its file mode."""
     sftp = remote.open_sftp()
     try:
         sftp.putfo(io.BytesIO(content.encode("utf-8")), path)

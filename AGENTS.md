@@ -1,7 +1,5 @@
 # Agent Notes: NanoKVM Pro Desk Screen
 
-Standard: ha-standards v0.5.2
-
 Language: README in **English**; code, logs and `strings.json` in English; translations en + pt-BR.
 
 ## Overview
@@ -32,16 +30,17 @@ All code in `custom_components/nanokvm_pro_desk_screen/`.
 
 ## Local validation (before push)
 
-The pre-commit hook (`.githooks/pre-commit`) runs ruff, mypy, Pyright and pytest. By hand:
+`.venv/bin/prek install` once per clone; the git hook then runs ruff (lint + format), codespell, yamllint, prettier, zizmor, markdownlint, mypy and Pyright. By hand:
 
 ```bash
-python -m ruff check custom_components/nanokvm_pro_desk_screen tests
-python -m coverage run -m pytest -q && python -m coverage report
+.venv/bin/prek run --all-files
+.venv/bin/coverage run -m pytest -q && .venv/bin/coverage report
 ```
 
-Deploy to ha-test: VS Code tasks in `.vscode/`.
+Contributor setup: `CONTRIBUTING.md`.
 
 ## Deviations from standard
 
+- `agent/runtime.py` runs on the Desk with its own `python3` (3.13.2 on the Pro Desk, checked 2026-11-05): ruff targets py313 for it and it may print and raise `ValueError`/`OSError` as HTTP replies (`extend-per-file-ignores` in `pyproject.toml`). Keep it stdlib-only and 3.13-compatible.
 - `test-before-setup` / `test-before-configure` exempt: the agent does not exist until the panel installs it.
 - `reauthentication-flow` exempt: the token is machine-provisioned.

@@ -1,9 +1,8 @@
 """Small Paramiko wrapper used to install and manage the Desk agent."""
 
-from __future__ import annotations
-
-import socket
 from dataclasses import dataclass, field
+import socket
+from typing import Self, override
 
 import paramiko
 
@@ -31,6 +30,7 @@ class RemoteCommandError(Exception):
     exit_status: int
     stderr: str
 
+    @override
     def __str__(self) -> str:
         return f"{self.message} (exit {self.exit_status}): {self.stderr}".strip()
 
@@ -39,6 +39,7 @@ class HostKeyMismatchError(paramiko.SSHException):
     """Raised when the server key is not the one the user trusted."""
 
     def __init__(self, key: paramiko.PKey) -> None:
+        """Record the presented key type and fingerprint."""
         super().__init__("SSH host key does not match the trusted key")
         self.key_type = key.get_name()
         self.fingerprint = key.fingerprint
@@ -50,6 +51,7 @@ class _PinnedHostKey(paramiko.MissingHostKeyPolicy):
     def __init__(self, fingerprint: str) -> None:
         self.fingerprint = fingerprint
 
+    @override
     def missing_host_key(
         self, client: paramiko.SSHClient, hostname: str, key: paramiko.PKey
     ) -> None:
@@ -73,17 +75,21 @@ class SSHClient:
     """Context-managed SSH client."""
 
     def __init__(self, config: ConnectionConfig) -> None:
+        """Store the connection settings; connect lazily."""
         self.config = config
         self._client: paramiko.SSHClient | None = None
 
-    def __enter__(self) -> SSHClient:
+    def __enter__(self) -> Self:
+        """Connect and return the client."""
         self.connect()
         return self
 
     def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        """Close the connection."""
         self.close()
 
     def connect(self) -> None:
+        """Open the SSH connection, accepting only the pinned host key."""
         client = paramiko.SSHClient()
         # No known_hosts are loaded, so every connection goes through the pin;
         # without a trusted fingerprint nothing matches and the login is refused.
@@ -104,21 +110,26 @@ class SSHClient:
         self._client = client
 
     def close(self) -> None:
+        """Close the SSH connection if open."""
         if self._client is not None:
             self._client.close()
             self._client = None
 
     def run(self, command: str) -> tuple[str, str, int]:
+        """Run a command and return stdout, stderr and the exit status."""
         if self._client is None:
             raise RuntimeError("SSH client is not connected")
 
-        stdin, stdout, stderr = self._client.exec_command(command, timeout=self.config.timeout)
+        stdin, stdout, stderr = self._client.exec_command(
+            command, timeout=self.config.timeout
+        )
         stdin.close()
         out = stdout.read().decode(errors="replace")
         err = stderr.read().decode(errors="replace")
         return out, err, stdout.channel.recv_exit_status()
 
     def open_sftp(self) -> paramiko.SFTPClient:
+        """Open an SFTP session on the connection."""
         if self._client is None:
             raise RuntimeError("SSH client is not connected")
 

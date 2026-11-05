@@ -1,11 +1,11 @@
 """Data coordinator for NanoKVM Pro Desk Screen."""
 
-from __future__ import annotations
-
-import logging
 from datetime import timedelta
+import logging
+from typing import override
 
 import aiohttp
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -39,6 +39,7 @@ class DeskScreenDataUpdateCoordinator(DataUpdateCoordinator[str]):
         )
         self.client = client
 
+    @override
     async def _async_update_data(self) -> str:
         """Fetch the agent's source hash; this doubles as the reachability check."""
         try:

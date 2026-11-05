@@ -1,19 +1,19 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "NanoKVM Pro Desk Screen",
-        "description": "Informe o host do NanoKVM Pro Desk. Depois da configuração, use o botão Agent na barra lateral para instalar ou conectar o agente da tela.",
-        "data": {
-          "host": "Host"
-        }
-      }
+    "abort": {
+      "already_configured": "Esta tela já está configurada."
     },
     "error": {
       "invalid_host": "Informe o host sem http:// nem caminho."
     },
-    "abort": {
-      "already_configured": "Esta tela já está configurada."
+    "step": {
+      "user": {
+        "data": {
+          "host": "Host"
+        },
+        "description": "Informe o host do NanoKVM Pro Desk. Depois da configuração, use o botão Agent na barra lateral para instalar ou conectar o agente da tela.",
+        "title": "NanoKVM Pro Desk Screen"
+      }
     }
   },
   "entity": {
