@@ -34,7 +34,7 @@ See and control the front-panel screen of a Sipeed **NanoKVM Pro Desk** from Hom
 2. Download **NanoKVM Pro Desk Screen** in **Settings → Marketplace**.
 3. Restart Home Assistant.
 
-On Home Assistant 2026.10 or older, use HACS instead:
+On Home Assistant 2026.10 or older, install [HACS](https://hacs.xyz/) first, then use:
 [![Open your Home Assistant instance and open this repository in HACS.][badge-my-hacs]][link-my-hacs]
 
 ### Manual
