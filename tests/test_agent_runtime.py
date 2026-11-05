@@ -1,11 +1,11 @@
-from __future__ import annotations
+"""Tests for the on-device agent HTTP server and input writers."""
 
-import json
-import struct
-import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+import json
 from pathlib import Path
+import struct
+import threading
 from typing import Any
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -51,6 +51,7 @@ TOKEN = "secret-token"
 
 @contextmanager
 def running_agent(tmp_path: Path, frame: bytes = bytes(FRAME_SIZE)) -> Iterator[str]:
+    """Run the agent on a free port with a fake framebuffer."""
     framebuffer = tmp_path / "fb0"
     framebuffer.write_bytes(frame)
     config = AgentConfig(
@@ -72,6 +73,7 @@ def running_agent(tmp_path: Path, frame: bytes = bytes(FRAME_SIZE)) -> Iterator[
 
 
 def get(url: str, token: str | None = TOKEN) -> bytes:
+    """GET a URL from the agent, with the token by default."""
     request = Request(url)
     if token:
         request.add_header("X-NanoKVM-Desk-Token", token)
@@ -82,6 +84,7 @@ def get(url: str, token: str | None = TOKEN) -> bytes:
 
 
 def unpack_events(data: bytes) -> list[tuple[int, int, int]]:
+    """Unpack written input events into (type, code, value)."""
     size = struct.calcsize(EVENT_STRUCT)
     return [
         struct.unpack(EVENT_STRUCT, data[offset : offset + size])[2:]
@@ -91,6 +94,7 @@ def unpack_events(data: bytes) -> list[tuple[int, int, int]]:
 
 @pytest.mark.parametrize("path", ["/", "/api/health", "/api/screen/frame"])
 def test_agent_rejects_missing_token(tmp_path: Path, path: str) -> None:
+    """Test agent rejects missing token."""
     with running_agent(tmp_path) as base_url, pytest.raises(HTTPError) as err:
         get(f"{base_url}{path}", token=None)
 
@@ -98,11 +102,16 @@ def test_agent_rejects_missing_token(tmp_path: Path, path: str) -> None:
 
 
 def test_agent_health_reports_its_source_hash(tmp_path: Path) -> None:
+    """Test agent health reports its source hash."""
     with running_agent(tmp_path) as base_url:
-        assert json.loads(get(f"{base_url}/api/health")) == {"ok": True, "agent_hash": AGENT_HASH}
+        assert json.loads(get(f"{base_url}/api/health")) == {
+            "ok": True,
+            "agent_hash": AGENT_HASH,
+        }
 
 
 def test_agent_serves_single_frames(tmp_path: Path) -> None:
+    """Test agent serves single frames."""
     frame = bytes(range(256)) * (FRAME_SIZE // 256)
 
     with running_agent(tmp_path, frame) as base_url:
@@ -111,33 +120,50 @@ def test_agent_serves_single_frames(tmp_path: Path) -> None:
 
 
 def test_agent_reports_a_short_framebuffer(tmp_path: Path) -> None:
-    with running_agent(tmp_path, b"\x00\x00") as base_url, pytest.raises(HTTPError) as err:
+    """Test agent reports a short framebuffer."""
+    with (
+        running_agent(tmp_path, b"\x00\x00") as base_url,
+        pytest.raises(HTTPError) as err,
+    ):
         get(f"{base_url}/api/screen/frame")
 
     assert err.value.code == 409
 
 
 def test_load_config_reads_bind_port_and_token(tmp_path: Path) -> None:
+    """Test load config reads bind port and token."""
     config_path = tmp_path / "config.json"
-    config_path.write_text(json.dumps({"bind": "0.0.0.0", "port": 9000, "token": "t" * 32}))
+    config_path.write_text(
+        json.dumps({"bind": "0.0.0.0", "port": 9000, "token": "t" * 32})
+    )
 
-    assert load_config(str(config_path)) == AgentConfig(bind="0.0.0.0", port=9000, token="t" * 32)
+    assert load_config(str(config_path)) == AgentConfig(
+        bind="0.0.0.0", port=9000, token="t" * 32
+    )
 
 
 def test_load_config_rejects_short_tokens(tmp_path: Path) -> None:
+    """Test load config rejects short tokens."""
     config_path = tmp_path / "config.json"
-    config_path.write_text(json.dumps({"bind": "0.0.0.0", "port": 8765, "token": "short"}))
+    config_path.write_text(
+        json.dumps({"bind": "0.0.0.0", "port": 8765, "token": "short"})
+    )
 
     with pytest.raises(ValueError, match="at least"):
         load_config(str(config_path))
 
 
 def test_sanitize_log_value_redacts_sensitive_values() -> None:
+    """Test sanitize log value redacts sensitive values."""
     assert sanitize_log_value("token=abc") == "<redacted>"
-    assert sanitize_log_value("GET /api/health?foo=bar HTTP/1.1") == "GET /api/health HTTP/1.1"
+    assert (
+        sanitize_log_value("GET /api/health?foo=bar HTTP/1.1")
+        == "GET /api/health HTTP/1.1"
+    )
 
 
 def test_resolve_input_paths_uses_device_names() -> None:
+    """Test resolve input paths uses device names."""
     paths = resolve_input_paths(
         [
             {"event": "event0", "path": "/dev/input/event0", "name": "hyn_ts"},
@@ -154,6 +180,7 @@ def test_resolve_input_paths_uses_device_names() -> None:
 
 
 def test_rotary_and_key_never_fall_back_to_the_touchscreen() -> None:
+    """Test rotary and key never fall back to the touchscreen."""
     paths = resolve_input_paths(
         [{"event": "event0", "path": "/dev/input/event0", "name": "hyn_ts"}]
     )
@@ -162,12 +189,14 @@ def test_rotary_and_key_never_fall_back_to_the_touchscreen() -> None:
 
 
 def test_logical_to_physical_follows_the_clockwise_mount() -> None:
+    """Test logical to physical follows the clockwise mount."""
     assert logical_to_physical(0, 0) == (0, 319)
     assert logical_to_physical(319, 171) == (171, 0)
 
 
 @pytest.mark.parametrize("value", ["nan", float("nan"), float("inf"), "1e999"])
 def test_bounded_numbers_reject_non_finite_values(value: object) -> None:
+    """Test bounded numbers reject non finite values."""
     with pytest.raises(ValueError):
         bounded_float(value, 0.01, 5.0, "press_seconds")
     with pytest.raises(ValueError):
@@ -175,12 +204,14 @@ def test_bounded_numbers_reject_non_finite_values(value: object) -> None:
 
 
 def test_pack_event_contains_type_code_and_value() -> None:
+    """Test pack event contains type code and value."""
     event = struct.unpack(EVENT_STRUCT, pack_event(EV_REL, REL_X, -1))
 
     assert event[2:] == (EV_REL, REL_X, -1)
 
 
 def test_write_key_click_generates_key_press_and_release(tmp_path: Path) -> None:
+    """Test write key click generates key press and release."""
     event_file = tmp_path / "event"
 
     write_key_click(str(event_file), 0.01)
@@ -191,6 +222,7 @@ def test_write_key_click_generates_key_press_and_release(tmp_path: Path) -> None
 
 
 def test_write_knob_rotate_generates_relative_events(tmp_path: Path) -> None:
+    """Test write knob rotate generates relative events."""
     event_file = tmp_path / "event"
 
     write_knob_rotate(str(event_file), -1, 2)
@@ -200,6 +232,7 @@ def test_write_knob_rotate_generates_relative_events(tmp_path: Path) -> None:
 
 
 def test_write_touch_tap_generates_touch_down_and_release(tmp_path: Path) -> None:
+    """Test write touch tap generates touch down and release."""
     event_file = tmp_path / "event"
 
     write_touch_tap(str(event_file), 12, 34, 0.01)
@@ -212,9 +245,14 @@ def test_write_touch_tap_generates_touch_down_and_release(tmp_path: Path) -> Non
     assert (EV_KEY, BTN_TOUCH, 0) in events
 
 
-def post(url: str, body: object, *, raw: bytes | None = None) -> tuple[int, dict[str, Any]]:
+def post(
+    url: str, body: object, *, raw: bytes | None = None
+) -> tuple[int, dict[str, Any]]:
+    """POST JSON to the agent and return the status and reply."""
     data = raw if raw is not None else json.dumps(body).encode()
-    request = Request(url, data=data, method="POST", headers={"X-NanoKVM-Desk-Token": TOKEN})
+    request = Request(
+        url, data=data, method="POST", headers={"X-NanoKVM-Desk-Token": TOKEN}
+    )
     try:
         with urlopen(request, timeout=2) as response:
             return response.status, json.loads(response.read())
@@ -223,6 +261,7 @@ def post(url: str, body: object, *, raw: bytes | None = None) -> tuple[int, dict
 
 
 def make_input_devices(tmp_path: Path, *names: str) -> None:
+    """Create fake evdev device folders with the given names."""
     for index, name in enumerate(names):
         device = tmp_path / "input" / f"event{index}" / "device"
         device.mkdir(parents=True)
@@ -231,6 +270,7 @@ def make_input_devices(tmp_path: Path, *names: str) -> None:
 
 
 def test_list_input_devices_reads_sysfs_names(tmp_path: Path) -> None:
+    """Test list input devices reads sysfs names."""
     make_input_devices(tmp_path, "hyn_ts", "rotary@0")
 
     assert list_input_devices(str(tmp_path / "input")) == [
@@ -240,6 +280,7 @@ def test_list_input_devices_reads_sysfs_names(tmp_path: Path) -> None:
 
 
 def test_resolve_input_paths_falls_back_to_name_fragments() -> None:
+    """Test resolve input paths falls back to name fragments."""
     paths = resolve_input_paths(
         [
             {"event": "event0", "path": "/dev/input/event0", "name": "Goodix-TS"},
@@ -247,21 +288,46 @@ def test_resolve_input_paths_falls_back_to_name_fragments() -> None:
         ]
     )
 
-    assert paths == {"touch": "/dev/input/event0", "rotary": "/dev/input/event1", "key": None}
+    assert paths == {
+        "touch": "/dev/input/event0",
+        "rotary": "/dev/input/event1",
+        "key": None,
+    }
 
 
 @pytest.mark.parametrize(
     ("path", "body", "writer", "expected"),
     [
-        ("tap", {"x": 0, "y": 0}, "write_touch_tap", {"action": "tap", "physical_x": 0, "physical_y": 319}),
-        ("swipe", {"start_x": 0, "start_y": 0, "end_x": 10, "end_y": 0, "steps": "3"}, "write_touch_swipe", {"steps": 3}),
-        ("knob/rotate", {"direction": "left", "notches": 2}, "write_knob_rotate", {"events": 4}),
+        (
+            "tap",
+            {"x": 0, "y": 0},
+            "write_touch_tap",
+            {"action": "tap", "physical_x": 0, "physical_y": 319},
+        ),
+        (
+            "swipe",
+            {"start_x": 0, "start_y": 0, "end_x": 10, "end_y": 0, "steps": "3"},
+            "write_touch_swipe",
+            {"steps": 3},
+        ),
+        (
+            "knob/rotate",
+            {"direction": "left", "notches": 2},
+            "write_knob_rotate",
+            {"events": 4},
+        ),
         ("knob/click", {}, "write_key_click", {"action": "click"}),
     ],
 )
 def test_agent_input_endpoints(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, path: str, body: dict, writer: str, expected: dict
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    body: dict,
+    writer: str,
+    expected: dict,
 ) -> None:
+    """Test agent input endpoints."""
     make_input_devices(tmp_path, "hyn_ts", "rotary@0", "gpio_keys")
     calls: list[tuple[object, ...]] = []
     monkeypatch.setattr(runtime, writer, lambda *args: calls.append(args))
@@ -284,7 +350,10 @@ def test_agent_input_endpoints(
         ("nope", {}, None, 404),
     ],
 )
-def test_agent_input_errors(tmp_path: Path, path: str, body: object, raw: bytes | None, status: int) -> None:
+def test_agent_input_errors(
+    tmp_path: Path, path: str, body: object, raw: bytes | None, status: int
+) -> None:
+    """Test agent input errors."""
     make_input_devices(tmp_path, "rotary@0")
 
     with running_agent(tmp_path) as base_url:
@@ -292,6 +361,7 @@ def test_agent_input_errors(tmp_path: Path, path: str, body: object, raw: bytes 
 
 
 def test_agent_unknown_get_path(tmp_path: Path) -> None:
+    """Test agent unknown get path."""
     with running_agent(tmp_path) as base_url, pytest.raises(HTTPError) as err:
         get(f"{base_url}/api/nope")
 
@@ -300,6 +370,7 @@ def test_agent_unknown_get_path(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("value", [None, True, [1], -1, 999])
 def test_bounded_numbers_reject_bad_values(value: object) -> None:
+    """Test bounded numbers reject bad values."""
     with pytest.raises(ValueError):
         bounded_float(value, 0, 10, "x")
     with pytest.raises(ValueError):
@@ -307,6 +378,7 @@ def test_bounded_numbers_reject_bad_values(value: object) -> None:
 
 
 def test_write_touch_swipe_moves_between_the_points(tmp_path: Path) -> None:
+    """Test write touch swipe moves between the points."""
     event_file = tmp_path / "event"
 
     write_touch_swipe(str(event_file), (0, 0), (10, 20), 3, 0.001)
@@ -317,9 +389,14 @@ def test_write_touch_swipe_moves_between_the_points(tmp_path: Path) -> None:
     assert (EV_ABS, ABS_MT_TRACKING_ID, -1) in events
 
 
-def test_main_serves_until_interrupted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_serves_until_interrupted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test main serves until interrupted."""
     config_path = tmp_path / "config.json"
-    config_path.write_text(json.dumps({"bind": "127.0.0.1", "port": 0, "token": "t" * 32}))
+    config_path.write_text(
+        json.dumps({"bind": "127.0.0.1", "port": 0, "token": "t" * 32})
+    )
 
     def interrupt(_self: object) -> None:
         raise KeyboardInterrupt

@@ -1,8 +1,7 @@
 """Camera platform for NanoKVM Pro Desk Screen."""
 
-from __future__ import annotations
-
 import logging
+from typing import override
 
 from homeassistant.components.camera import Camera
 from homeassistant.core import HomeAssistant
@@ -38,6 +37,7 @@ class DeskScreenCamera(NanoKVMProDeskScreenEntity, Camera):  # pyright: ignore[r
         NanoKVMProDeskScreenEntity.__init__(self, coordinator, "screen_camera")
         Camera.__init__(self)
 
+    @override
     async def async_camera_image(
         self,
         width: int | None = None,
@@ -46,11 +46,12 @@ class DeskScreenCamera(NanoKVMProDeskScreenEntity, Camera):  # pyright: ignore[r
         """Return one still image from the installed agent."""
         try:
             return await self.coordinator.client.async_snapshot_jpeg()
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001 - a failed snapshot must not break the camera
             _LOGGER.debug("Failed to fetch Desk screen snapshot: %s", err)
             return None
 
     @property
+    @override
     def available(self) -> bool:
         """Return whether the camera can fetch snapshots."""
         return self.coordinator.last_update_success

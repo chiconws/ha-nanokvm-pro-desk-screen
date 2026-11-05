@@ -1,16 +1,15 @@
 """HTTP views for the NanoKVM Pro Desk Screen panel."""
 
-from __future__ import annotations
-
 import asyncio
 from functools import partial
 from http import HTTPStatus
 from typing import Any
 
 import aiohttp
+from aiohttp import web
 import paramiko
 import probatio
-from aiohttp import web
+
 from homeassistant.components.http import KEY_HASS, require_admin
 from homeassistant.components.http.data_validator import RequestDataValidator
 from homeassistant.config_entries import ConfigEntry
@@ -28,13 +27,7 @@ from .agent.ssh import (
     RemoteCommandError,
     probe_host_key,
 )
-from .const import (
-    CONF_PORT,
-    CONF_SSH_HOST_KEY,
-    CONF_TOKEN,
-    DEFAULT_PORT,
-    DOMAIN,
-)
+from .const import CONF_PORT, CONF_SSH_HOST_KEY, CONF_TOKEN, DEFAULT_PORT, DOMAIN
 
 AGENT_START_ATTEMPTS = 10
 
@@ -49,7 +42,9 @@ PORT = probatio.All(probatio.Coerce(int), probatio.Range(min=1, max=65535))
 LIFECYCLE_SCHEMA = probatio.Schema(
     {
         probatio.Optional("ssh_host", default=""): probatio.All(str, probatio.Strip),
-        probatio.Optional("ssh_user", default="root"): probatio.All(str, probatio.Strip, probatio.Length(min=1)),
+        probatio.Optional("ssh_user", default="root"): probatio.All(
+            str, probatio.Strip, probatio.Length(min=1)
+        ),
         probatio.Optional("ssh_password", default=""): str,
         probatio.Optional("ssh_port", default=22): PORT,
         probatio.Optional("agent_port"): PORT,
@@ -67,7 +62,9 @@ class DeskScreenResourceView(HomeAssistantView):
     name = f"api:{DOMAIN}:resource"
 
     @require_admin
-    async def get(self, request: web.Request, entry_id: str, resource: str) -> web.Response:
+    async def get(
+        self, request: web.Request, entry_id: str, resource: str
+    ) -> web.Response:
         """Handle GET requests from the panel."""
         hass = request.app[KEY_HASS]
         entry = _entry(hass, entry_id)
@@ -115,10 +112,14 @@ class DeskScreenInputView(HomeAssistantView):
         hass = request.app[KEY_HASS]
         entry = _entry(hass, entry_id)
         if entry is None or action not in INPUT_PATHS:
-            return self.json_message("Entry or input action not found", HTTPStatus.NOT_FOUND)
+            return self.json_message(
+                "Entry or input action not found", HTTPStatus.NOT_FOUND
+            )
 
         try:
-            return self.json(await _client(hass, entry).async_post_json(INPUT_PATHS[action], data))
+            return self.json(
+                await _client(hass, entry).async_post_json(INPUT_PATHS[action], data)
+            )
         except (TimeoutError, aiohttp.ClientError) as err:
             return self.json_message(str(err), HTTPStatus.BAD_GATEWAY)
 
@@ -138,7 +139,9 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
         hass = request.app[KEY_HASS]
         entry = _entry(hass, entry_id)
         if entry is None or action not in ("install", "uninstall"):
-            return self.json_message("Entry or agent action not found", HTTPStatus.NOT_FOUND)
+            return self.json_message(
+                "Entry or agent action not found", HTTPStatus.NOT_FOUND
+            )
 
         connection = ConnectionConfig(
             host=data["ssh_host"] or entry.data[CONF_HOST],
@@ -146,7 +149,8 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
             password=data["ssh_password"] or None,
             port=data["ssh_port"],
             # A key the user just confirmed in the panel replaces the stored one.
-            host_key_fingerprint=data["ssh_host_key"] or entry.data.get(CONF_SSH_HOST_KEY),
+            host_key_fingerprint=data["ssh_host_key"]
+            or entry.data.get(CONF_SSH_HOST_KEY),
         )
         trusted = {CONF_SSH_HOST_KEY: connection.host_key_fingerprint}
 
@@ -174,11 +178,18 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
 
             port = data.get("agent_port", entry.data.get(CONF_PORT, DEFAULT_PORT))
             token = await hass.async_add_executor_job(
-                partial(install_agent, connection, port=port, reset_token=data["reset_token"])
+                partial(
+                    install_agent,
+                    connection,
+                    port=port,
+                    reset_token=data["reset_token"],
+                )
             )
             # Wait before saving: saving reloads the entry, and its first
             # poll should find the restarted agent.
-            answers = await _agent_answers(_client(hass, entry, connection.host, port, token))
+            answers = await _agent_answers(
+                _client(hass, entry, connection.host, port, token)
+            )
             changed = _save_entry(
                 hass, entry, host=connection.host, port=port, token=token, **trusted
             )
@@ -194,10 +205,17 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
             return self.json({"ok": True, "host": connection.host, "port": port})
         except HostKeyMismatchError as err:
             return self._host_key_response("changed", err.key_type, err.fingerprint)
-        except (OSError, RuntimeError, RemoteCommandError, paramiko.SSHException) as err:
+        except (
+            OSError,
+            RuntimeError,
+            RemoteCommandError,
+            paramiko.SSHException,
+        ) as err:
             return self.json_message(str(err), HTTPStatus.BAD_GATEWAY)
 
-    def _host_key_response(self, reason: str, key_type: str, fingerprint: str) -> web.Response:
+    def _host_key_response(
+        self, reason: str, key_type: str, fingerprint: str
+    ) -> web.Response:
         """Ask the panel to confirm the SSH host key before any login is attempted."""
         return self.json(
             {
@@ -239,7 +257,7 @@ async def _agent_state(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, obj
     if configured:
         try:
             outdated = await _client(hass, entry).async_agent_hash() != AGENT_HASH
-        except (TimeoutError, aiohttp.ClientError):
+        except TimeoutError, aiohttp.ClientError:
             pass
         else:
             reachable = True
@@ -258,7 +276,7 @@ async def _agent_answers(client: DeskAgentClient) -> bool:
     for _ in range(AGENT_START_ATTEMPTS):
         try:
             await client.async_agent_hash()
-        except (TimeoutError, aiohttp.ClientError):
+        except TimeoutError, aiohttp.ClientError:
             await asyncio.sleep(1)
         else:
             return True

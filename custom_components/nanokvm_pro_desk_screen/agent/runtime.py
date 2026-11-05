@@ -4,22 +4,20 @@ This file is copied to the NanoKVM Desk and executed directly with python3.
 Keep it free of third-party and package-relative imports.
 """
 
-from __future__ import annotations
-
 import argparse
+from dataclasses import dataclass
 import glob
 import hashlib
 import hmac
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import math
 import os
 import struct
 import sys
 import time
-from dataclasses import dataclass
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, override
 from urllib.parse import urlparse
 
 DEFAULT_CONFIG_PATH = "/userapp/nanokvm-desk-agent/config.json"
@@ -69,6 +67,7 @@ class AgentConfig:
 
 
 def load_config(path: str) -> AgentConfig:
+    """Load and validate the agent config file."""
     with open(path, encoding="utf-8") as config_file:
         raw = json.load(config_file)
 
@@ -79,6 +78,8 @@ def load_config(path: str) -> AgentConfig:
 
 
 def create_server(config: AgentConfig) -> ThreadingHTTPServer:
+    """Create the HTTP server bound to the configured address."""
+
     class Handler(AgentRequestHandler):
         runtime_config = config
 
@@ -94,6 +95,7 @@ class AgentRequestHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def do_GET(self) -> None:
+        """Serve health, input discovery and framebuffer requests."""
         path = urlparse(self.path).path
         if not self.require_auth():
             return
@@ -103,9 +105,12 @@ class AgentRequestHandler(BaseHTTPRequestHandler):
         elif path == "/api/screen/frame":
             self.send_frame()
         else:
-            self.send_json({"ok": False, "error": "not found"}, status=HTTPStatus.NOT_FOUND)
+            self.send_json(
+                {"ok": False, "error": "not found"}, status=HTTPStatus.NOT_FOUND
+            )
 
     def do_POST(self) -> None:
+        """Handle tap, swipe and knob input requests."""
         path = urlparse(self.path).path
         if not self.require_auth():
             return
@@ -121,7 +126,9 @@ class AgentRequestHandler(BaseHTTPRequestHandler):
             elif path == "/api/input/knob/click":
                 result = handle_knob_click(self.runtime_config, payload)
             else:
-                self.send_json({"ok": False, "error": "not found"}, status=HTTPStatus.NOT_FOUND)
+                self.send_json(
+                    {"ok": False, "error": "not found"}, status=HTTPStatus.NOT_FOUND
+                )
                 return
         except ValueError as err:
             self.send_json(
@@ -139,6 +146,7 @@ class AgentRequestHandler(BaseHTTPRequestHandler):
         self.send_json(result)
 
     def read_json_body(self) -> dict[str, Any]:
+        """Read and parse a small JSON request body."""
         length = int(self.headers.get("Content-Length", "0") or "0")
         if length > 16_384:
             raise ValueError("request body is too large")
@@ -152,15 +160,21 @@ class AgentRequestHandler(BaseHTTPRequestHandler):
         return parsed
 
     def require_auth(self) -> bool:
+        """Check the request token, replying 401 when it is wrong."""
         if is_authorized(self.headers, self.runtime_config.token):
             return True
 
-        self.send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.UNAUTHORIZED)
+        self.send_json(
+            {"ok": False, "error": "unauthorized"}, status=HTTPStatus.UNAUTHORIZED
+        )
         return False
 
     def send_frame(self) -> None:
+        """Send the raw RGB565 framebuffer."""
         try:
-            with open(self.runtime_config.framebuffer, "rb", buffering=0) as framebuffer:
+            with open(
+                self.runtime_config.framebuffer, "rb", buffering=0
+            ) as framebuffer:
                 frame = framebuffer.read(FRAME_SIZE)
             if len(frame) != FRAME_SIZE:
                 raise OSError("short framebuffer read")
@@ -173,11 +187,15 @@ class AgentRequestHandler(BaseHTTPRequestHandler):
 
         self.send_body(HTTPStatus.OK, "application/octet-stream", frame)
 
-    def send_json(self, data: dict[str, object], status: HTTPStatus = HTTPStatus.OK) -> None:
+    def send_json(
+        self, data: dict[str, object], status: HTTPStatus = HTTPStatus.OK
+    ) -> None:
+        """Send a compact JSON response."""
         body = json.dumps(data, separators=(",", ":")).encode("utf-8")
         self.send_body(status, "application/json", body)
 
     def send_body(self, status: HTTPStatus, content_type: str, body: bytes) -> None:
+        """Send a response body with no-cache and nosniff headers."""
         self.send_response(status)
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -186,15 +204,22 @@ class AgentRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    @override
     def log_message(self, format: str, *args: object) -> None:
+        """Log requests to stderr with tokens redacted."""
         safe_args = tuple(sanitize_log_value(arg) for arg in args)
         print(f"{self.address_string()} - {format % safe_args}", file=sys.stderr)
 
 
 def sanitize_log_value(value: object) -> str:
+    """Redact log values that may carry the access token."""
     text = str(value)
     lowered = text.lower()
-    if "authorization" in lowered or "token" in lowered or "x-nanokvm-desk-token" in lowered:
+    if (
+        "authorization" in lowered
+        or "token" in lowered
+        or "x-nanokvm-desk-token" in lowered
+    ):
         return "<redacted>"
 
     parts = text.split(" ")
@@ -207,10 +232,12 @@ def sanitize_log_value(value: object) -> str:
 
 
 def is_authorized(headers: Any, expected_token: str) -> bool:
+    """Compare the request token with the configured one in constant time."""
     return hmac.compare_digest(headers.get("X-NanoKVM-Desk-Token", ""), expected_token)
 
 
 def list_input_devices(input_root: str) -> list[dict[str, str]]:
+    """List evdev input devices and their names."""
     devices: list[dict[str, str]] = []
     for event_path in sorted(glob.glob(os.path.join(input_root, "event*"))):
         name_path = os.path.join(event_path, "device", "name")
@@ -222,17 +249,22 @@ def list_input_devices(input_root: str) -> list[dict[str, str]]:
 
         event = os.path.basename(event_path)
         if event and name:
-            devices.append({"event": event, "path": f"/dev/input/{event}", "name": name})
+            devices.append(
+                {"event": event, "path": f"/dev/input/{event}", "name": name}
+            )
 
     return devices
 
 
 def resolve_input_paths(devices: list[dict[str, str]]) -> dict[str, str | None]:
+    """Pick the touch, rotary and key input devices."""
     return {
         "touch": resolve_device_path(
             devices, exact=("hyn_ts",), contains=("touch", "_ts"), suffix="ts"
         ),
-        "rotary": resolve_device_path(devices, exact=("rotary@0",), contains=("rotary",)),
+        "rotary": resolve_device_path(
+            devices, exact=("rotary@0",), contains=("rotary",)
+        ),
         "key": resolve_device_path(devices, exact=("gpio_keys",), contains=("keys",)),
     }
 
@@ -244,6 +276,7 @@ def resolve_device_path(
     contains: tuple[str, ...],
     suffix: str | None = None,
 ) -> str | None:
+    """Find a device by exact name, then by substring, then by suffix."""
     for expected in exact:
         for device in devices:
             if device["name"] == expected:
@@ -260,11 +293,14 @@ def resolve_device_path(
 
 
 def handle_tap(config: AgentConfig, payload: dict[str, Any]) -> dict[str, object]:
+    """Validate a tap request and write it to the touch device."""
     paths = resolve_input_paths(list_input_devices(config.input_root))
     touch_path = require_path(paths["touch"], "touch input device not found")
     x = bounded_float(payload.get("x"), 0, LOGICAL_WIDTH - 1, "x")
     y = bounded_float(payload.get("y"), 0, LOGICAL_HEIGHT - 1, "y")
-    press_seconds = bounded_float(payload.get("press_seconds", 0.05), 0.01, 5.0, "press_seconds")
+    press_seconds = bounded_float(
+        payload.get("press_seconds", 0.05), 0.01, 5.0, "press_seconds"
+    )
     physical_x, physical_y = logical_to_physical(x, y)
 
     write_touch_tap(touch_path, physical_x, physical_y, press_seconds)
@@ -279,6 +315,7 @@ def handle_tap(config: AgentConfig, payload: dict[str, Any]) -> dict[str, object
 
 
 def handle_swipe(config: AgentConfig, payload: dict[str, Any]) -> dict[str, object]:
+    """Validate a swipe request and write it to the touch device."""
     paths = resolve_input_paths(list_input_devices(config.input_root))
     touch_path = require_path(paths["touch"], "touch input device not found")
     start_x = bounded_float(payload.get("start_x"), 0, LOGICAL_WIDTH - 1, "start_x")
@@ -286,7 +323,9 @@ def handle_swipe(config: AgentConfig, payload: dict[str, Any]) -> dict[str, obje
     end_x = bounded_float(payload.get("end_x"), 0, LOGICAL_WIDTH - 1, "end_x")
     end_y = bounded_float(payload.get("end_y"), 0, LOGICAL_HEIGHT - 1, "end_y")
     steps = bounded_int(payload.get("steps", 8), 2, 64, "steps")
-    step_seconds = bounded_float(payload.get("step_seconds", 0.02), 0.0, 1.0, "step_seconds")
+    step_seconds = bounded_float(
+        payload.get("step_seconds", 0.02), 0.0, 1.0, "step_seconds"
+    )
     start = logical_to_physical(start_x, start_y)
     end = logical_to_physical(end_x, end_y)
 
@@ -294,7 +333,10 @@ def handle_swipe(config: AgentConfig, payload: dict[str, Any]) -> dict[str, obje
     return {"ok": True, "action": "swipe", "steps": steps}
 
 
-def handle_knob_rotate(config: AgentConfig, payload: dict[str, Any]) -> dict[str, object]:
+def handle_knob_rotate(
+    config: AgentConfig, payload: dict[str, Any]
+) -> dict[str, object]:
+    """Validate a knob rotation request and write it to the rotary device."""
     paths = resolve_input_paths(list_input_devices(config.input_root))
     rotary_path = require_path(paths["rotary"], "rotary input device not found")
     direction = str(payload.get("direction", "right"))
@@ -302,28 +344,37 @@ def handle_knob_rotate(config: AgentConfig, payload: dict[str, Any]) -> dict[str
         raise ValueError("direction must be left or right")
 
     notches = bounded_int(payload.get("notches", 1), 1, 50, "notches")
-    steps_per_notch = bounded_int(payload.get("steps_per_notch", 2), 1, 20, "steps_per_notch")
+    steps_per_notch = bounded_int(
+        payload.get("steps_per_notch", 2), 1, 20, "steps_per_notch"
+    )
     value = -1 if direction == "left" else 1
     events = notches * steps_per_notch
     write_knob_rotate(rotary_path, value, events)
     return {"ok": True, "action": "rotate", "direction": direction, "events": events}
 
 
-def handle_knob_click(config: AgentConfig, payload: dict[str, Any]) -> dict[str, object]:
+def handle_knob_click(
+    config: AgentConfig, payload: dict[str, Any]
+) -> dict[str, object]:
+    """Validate a knob click request and write it to the key device."""
     paths = resolve_input_paths(list_input_devices(config.input_root))
     key_path = require_path(paths["key"], "key input device not found")
-    press_seconds = bounded_float(payload.get("press_seconds", 0.05), 0.01, 5.0, "press_seconds")
+    press_seconds = bounded_float(
+        payload.get("press_seconds", 0.05), 0.01, 5.0, "press_seconds"
+    )
     write_key_click(key_path, press_seconds)
     return {"ok": True, "action": "click", "press_seconds": press_seconds}
 
 
 def require_path(path: str | None, message: str) -> str:
+    """Return the device path or raise OSError with the given message."""
     if not path:
         raise OSError(message)
     return path
 
 
 def bounded_float(value: object, minimum: float, maximum: float, name: str) -> float:
+    """Parse a number and check it is within bounds."""
     if value is None:
         raise ValueError(f"{name} is required")
     if isinstance(value, bool):
@@ -341,6 +392,7 @@ def bounded_float(value: object, minimum: float, maximum: float, name: str) -> f
 
 
 def bounded_int(value: object, minimum: int, maximum: int, name: str) -> int:
+    """Parse an integer and check it is within bounds."""
     if value is None:
         raise ValueError(f"{name} is required")
     if isinstance(value, bool):
@@ -365,6 +417,7 @@ def logical_to_physical(x: float, y: float) -> tuple[int, int]:
 
 
 def write_touch_tap(path: str, x: int, y: int, press_seconds: float) -> None:
+    """Write a touch press and release at one point."""
     with open(path, "wb", buffering=0) as device:
         emit_touch_down(device, x, y)
         time.sleep(press_seconds)
@@ -378,6 +431,7 @@ def write_touch_swipe(
     steps: int,
     step_seconds: float,
 ) -> None:
+    """Write a touch drag from start to end in steps."""
     points: list[tuple[int, int]] = []
     for index in range(steps):
         ratio = index / max(1, steps - 1)
@@ -398,6 +452,7 @@ def write_touch_swipe(
 
 
 def emit_touch_down(device: Any, x: int, y: int) -> None:
+    """Write the events for a finger touching down at a point."""
     write_event(device, EV_ABS, ABS_MT_SLOT, 0)
     write_event(device, EV_ABS, ABS_MT_TRACKING_ID, 1)
     write_event(device, EV_ABS, ABS_MT_POSITION_X, x)
@@ -411,6 +466,7 @@ def emit_touch_down(device: Any, x: int, y: int) -> None:
 
 
 def emit_touch_up(device: Any) -> None:
+    """Write the events for a finger lifting."""
     write_event(device, EV_ABS, ABS_MT_SLOT, 0)
     write_event(device, EV_ABS, ABS_MT_TRACKING_ID, -1)
     write_event(device, EV_KEY, BTN_TOUCH, 0)
@@ -419,6 +475,7 @@ def emit_touch_up(device: Any) -> None:
 
 
 def write_knob_rotate(path: str, value: int, events: int) -> None:
+    """Write relative rotation events for the knob."""
     with open(path, "wb", buffering=0) as device:
         for _ in range(events):
             write_event(device, EV_REL, REL_X, value)
@@ -426,6 +483,7 @@ def write_knob_rotate(path: str, value: int, events: int) -> None:
 
 
 def write_key_click(path: str, press_seconds: float) -> None:
+    """Write an Enter key press and release."""
     with open(path, "wb", buffering=0) as device:
         write_event(device, EV_KEY, KEY_ENTER, 1)
         write_syn(device)
@@ -435,14 +493,17 @@ def write_key_click(path: str, press_seconds: float) -> None:
 
 
 def write_syn(device: Any) -> None:
+    """Write a SYN_REPORT event to flush the batch."""
     write_event(device, EV_SYN, SYN_REPORT, 0)
 
 
 def write_event(device: Any, event_type: int, code: int, value: int) -> None:
+    """Write one input event to the device."""
     device.write(pack_event(event_type, code, value))
 
 
 def pack_event(event_type: int, code: int, value: int) -> bytes:
+    """Pack an input_event struct with the current time."""
     now = time.time()
     seconds = int(now)
     microseconds = int((now - seconds) * 1_000_000)
@@ -450,6 +511,7 @@ def pack_event(event_type: int, code: int, value: int) -> bytes:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the agent until interrupted."""
     parser = argparse.ArgumentParser(description="NanoKVM Desk on-device agent.")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     args = parser.parse_args(argv)

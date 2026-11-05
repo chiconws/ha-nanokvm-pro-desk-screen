@@ -1,4 +1,4 @@
-from __future__ import annotations
+"""Tests for the RGB565 frame decoding in the agent client."""
 
 import struct
 
@@ -14,6 +14,7 @@ from custom_components.nanokvm_pro_desk_screen.agent.runtime import (
 
 
 def test_rgb565_frame_is_decoded_and_rotated_clockwise() -> None:
+    """Test rgb565 frame is decoded and rotated clockwise."""
     frame = bytearray(FRAME_SIZE)
 
     def put(x: int, y: int, value: int) -> None:
@@ -34,4 +35,5 @@ def test_rgb565_frame_is_decoded_and_rotated_clockwise() -> None:
 
 
 def test_rgb565_to_jpeg_returns_a_jpeg() -> None:
+    """Test rgb565 to jpeg returns a jpeg."""
     assert rgb565_to_jpeg(bytes(FRAME_SIZE))[:2] == b"\xff\xd8"

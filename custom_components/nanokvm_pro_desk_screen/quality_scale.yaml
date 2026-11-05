@@ -1,4 +1,4 @@
-# Target: Silver (ha-standards).
+# Target: Silver.
 rules:
   # Bronze
   action-setup:

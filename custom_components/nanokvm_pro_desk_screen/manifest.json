@@ -1,20 +1,13 @@
 {
   "domain": "nanokvm_pro_desk_screen",
   "name": "NanoKVM Pro Desk Screen",
-  "codeowners": [
-    "@chiconws"
-  ],
+  "codeowners": ["@chiconws"],
   "config_flow": true,
-  "dependencies": [
-    "frontend",
-    "http"
-  ],
+  "dependencies": ["frontend", "http"],
   "documentation": "https://github.com/chiconws/ha-nanokvm-pro-desk-screen",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/chiconws/ha-nanokvm-pro-desk-screen/issues",
-  "requirements": [
-    "paramiko>=3.4"
-  ],
+  "requirements": ["paramiko>=3.4"],
   "version": "1.0.0"
 }
