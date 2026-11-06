@@ -145,6 +145,13 @@ logger:
 - The project does not write to `/dev/uinput` or NanoKVM config.
 - Reset the agent token from the sidebar agent dialog if it may have leaked.
 
+## Removal
+
+1. Go to **Settings → Devices & services → NanoKVM Pro Desk Screen**, open ⋮ and select **Delete**.
+2. Remove it in **Settings → Marketplace** (or HACS), or delete
+   `custom_components/nanokvm_pro_desk_screen` if you installed it manually.
+3. Restart Home Assistant.
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks and tests, and [AGENTS.md](AGENTS.md) for the code structure.
