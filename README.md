@@ -147,10 +147,13 @@ logger:
 
 ## Removal
 
-1. Go to **Settings → Devices & services → NanoKVM Pro Desk Screen**, open ⋮ and select **Delete**.
-2. Remove it in **Settings → Marketplace** (or HACS), or delete
+1. If you installed the agent, uninstall it from the sidebar agent dialog for each Desk
+   first; deleting the entry leaves the agent service running on the Desk.
+2. Go to **Settings → Devices & services → NanoKVM Pro Desk Screen**, open ⋮ and select
+   **Delete** for every Desk.
+3. Remove it in **Settings → Marketplace** (or HACS), or delete
    `custom_components/nanokvm_pro_desk_screen` if you installed it manually.
-3. Restart Home Assistant.
+4. Restart Home Assistant.
 
 ## Development
 
