@@ -7,7 +7,6 @@ from typing import Any
 
 import aiohttp
 from aiohttp import web
-import paramiko
 import probatio
 
 from homeassistant.components.http import KEY_HASS, require_admin
@@ -25,6 +24,7 @@ from .agent.ssh import (
     ConnectionConfig,
     HostKeyMismatchError,
     RemoteCommandError,
+    SSHError,
     probe_host_key,
 )
 from .const import CONF_PORT, CONF_SSH_HOST_KEY, CONF_TOKEN, DEFAULT_PORT, DOMAIN
@@ -209,7 +209,7 @@ class DeskScreenAgentLifecycleView(HomeAssistantView):
             OSError,
             RuntimeError,
             RemoteCommandError,
-            paramiko.SSHException,
+            SSHError,
         ) as err:
             return self.json_message(str(err), HTTPStatus.BAD_GATEWAY)
 
