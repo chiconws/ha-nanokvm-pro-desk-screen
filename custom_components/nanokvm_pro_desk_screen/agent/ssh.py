@@ -1,10 +1,19 @@
-"""Small Paramiko wrapper used to install and manage the Desk agent."""
+"""Small Paramiko wrapper used to install and manage the Desk agent.
 
+Paramiko is imported inside the functions, which run in the executor, never at
+module import. At boot, another integration may still be writing Paramiko to
+disk when Home Assistant imports this one, and a half-written package fails to
+import (seen on HA 2026.11).
+"""
+
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import wraps
 import socket
-from typing import Self, override
+from typing import TYPE_CHECKING, Self, cast, override
 
-import paramiko
+if TYPE_CHECKING:
+    import paramiko
 
 
 @dataclass(frozen=True)
@@ -35,7 +44,26 @@ class RemoteCommandError(Exception):
         return f"{self.message} (exit {self.exit_status}): {self.stderr}".strip()
 
 
-class HostKeyMismatchError(paramiko.SSHException):
+class SSHError(Exception):
+    """Raised for SSH failures, in place of paramiko.SSHException."""
+
+
+def translate_ssh_errors[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+    """Re-raise paramiko.SSHException from func as SSHError."""
+
+    @wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        import paramiko  # noqa: PLC0415
+
+        try:
+            return func(*args, **kwargs)
+        except paramiko.SSHException as err:
+            raise SSHError(str(err)) from err
+
+    return wrapper
+
+
+class HostKeyMismatchError(SSHError):
     """Raised when the server key is not the one the user trusted."""
 
     def __init__(self, key: paramiko.PKey) -> None:
@@ -45,13 +73,15 @@ class HostKeyMismatchError(paramiko.SSHException):
         self.fingerprint = key.fingerprint
 
 
-class _PinnedHostKey(paramiko.MissingHostKeyPolicy):
-    """Accept only the host key with the trusted fingerprint."""
+class _PinnedHostKey:
+    """Accept only the host key with the trusted fingerprint.
+
+    Duck-typed paramiko.MissingHostKeyPolicy, so Paramiko is not imported here.
+    """
 
     def __init__(self, fingerprint: str) -> None:
         self.fingerprint = fingerprint
 
-    @override
     def missing_host_key(
         self, client: paramiko.SSHClient, hostname: str, key: paramiko.PKey
     ) -> None:
@@ -59,8 +89,11 @@ class _PinnedHostKey(paramiko.MissingHostKeyPolicy):
             raise HostKeyMismatchError(key)
 
 
+@translate_ssh_errors
 def probe_host_key(host: str, port: int, timeout: float) -> tuple[str, str]:
     """Return the server's key type and fingerprint without authenticating."""
+    import paramiko  # noqa: PLC0415
+
     with socket.create_connection((host, port), timeout=timeout) as sock:
         transport = paramiko.Transport(sock)
         try:
@@ -90,11 +123,16 @@ class SSHClient:
 
     def connect(self) -> None:
         """Open the SSH connection, accepting only the pinned host key."""
+        import paramiko  # noqa: PLC0415
+
         client = paramiko.SSHClient()
         # No known_hosts are loaded, so every connection goes through the pin;
         # without a trusted fingerprint nothing matches and the login is refused.
         client.set_missing_host_key_policy(
-            _PinnedHostKey(self.config.host_key_fingerprint or "")
+            cast(
+                "paramiko.MissingHostKeyPolicy",
+                _PinnedHostKey(self.config.host_key_fingerprint or ""),
+            )
         )
         client.connect(
             hostname=self.config.host,

@@ -6,7 +6,7 @@ from pathlib import Path
 import secrets
 from typing import Any
 
-from .ssh import ConnectionConfig, RemoteCommandError, SSHClient
+from .ssh import ConnectionConfig, RemoteCommandError, SSHClient, translate_ssh_errors
 
 AGENT_DIR = "/userapp/nanokvm-desk-agent"
 AGENT_SCRIPT = f"{AGENT_DIR}/agent.py"
@@ -44,6 +44,7 @@ UNINSTALL_COMMANDS = [
 ]
 
 
+@translate_ssh_errors
 def install_agent(
     connection: ConnectionConfig, *, port: int, reset_token: bool = False
 ) -> str:
@@ -71,6 +72,7 @@ def install_agent(
     return str(config["token"])
 
 
+@translate_ssh_errors
 def uninstall_agent(connection: ConnectionConfig) -> dict[str, object]:
     """Remove the agent from the Desk; ok is False when files were left behind."""
     with SSHClient(connection) as remote:
